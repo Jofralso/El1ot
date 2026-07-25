@@ -42,3 +42,7 @@ paho-mqtt==1.6.1
 # Voice (optional, dev-only)
 # faster-whisper==0.10.0
 # openwakeword==0.6.0
+
+# AI Inference (optional, for local model execution)
+# llama-cpp-python==0.2.50
+huggingface_hub==0.20.0

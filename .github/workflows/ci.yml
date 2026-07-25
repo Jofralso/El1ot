@@ -48,7 +48,7 @@ jobs:
       - name: Type check with mypy (optional)
         run: |
           pip install mypy
-          mypy core/ agents/ knowledge/ tools/ --ignore-missing-imports || true
+          mypy core/ agents/ knowledge/ tools/ voice/ vision/ avatar/ --ignore-missing-imports || true
 
       - name: Run tests
         run: |
