@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -58,7 +58,7 @@ jobs:
           REDIS_PORT: 6379
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
@@ -71,28 +71,28 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Build Docker images
         run: |
-          docker-compose build --no-cache
+          docker compose build --no-cache
 
       - name: Run services
         run: |
-          docker-compose up -d
+          docker compose up -d
 
       - name: Wait for services to be ready
         run: |
           sleep 10
-          docker-compose ps
+          docker compose ps
 
       - name: Health check
         run: |
-          docker-compose exec -T core curl -f http://localhost:8000/health || exit 1
+          docker compose exec -T core curl -f http://localhost:8000/health || exit 1
 
       - name: API smoke test
         run: |
-          docker-compose exec -T core python -c "
+          docker compose exec -T core python -c "
           import urllib.request, json
           r = urllib.request.urlopen('http://localhost:8000/health')
           d = json.loads(r.read())
@@ -107,7 +107,7 @@ jobs:
 
       - name: Cleanup
         run: |
-          docker-compose down
+          docker compose down
 
   security:
     runs-on: ubuntu-latest
@@ -116,7 +116,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -124,6 +124,6 @@ jobs:
           output: 'trivy-results.sarif'
 
       - name: Upload Trivy results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
