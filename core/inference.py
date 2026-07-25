@@ -139,10 +139,17 @@ class GPUDetector:
                 )
                 if result.returncode == 0:
                     parts = result.stdout.strip().split(", ")
-                    if len(parts) >= 3:
+                    if len(parts) >= 1:
                         info["gpu_name"] = parts[0]
-                        info["memory_total_mb"] = int(parts[1])
-                        info["memory_free_mb"] = int(parts[2])
+                    if len(parts) >= 3:
+                        try:
+                            info["memory_total_mb"] = int(parts[1])
+                        except ValueError:
+                            info["memory_total_mb"] = 0
+                        try:
+                            info["memory_free_mb"] = int(parts[2])
+                        except ValueError:
+                            info["memory_free_mb"] = 0
             except (FileNotFoundError, subprocess.TimeoutExpired):
                 pass
         elif backend == GPUBackend.METAL:
@@ -176,7 +183,7 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "use_cases": ["code_generation", "code_completion", "refactoring"],
     },
     "deepseek-r1-distill-1.5b": {
-        "repo": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
+        "repo": "bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
         "filename": "DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
         "description": "DeepSeek-R1 Distill 1.5B - reasoning model",
         "parameters": "1.5B",

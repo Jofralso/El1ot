@@ -38,6 +38,12 @@ def get_supervisor() -> SupervisorAgent:
         _supervisor.register_agent(DocumentationAgent())
         _supervisor.register_agent(VoiceAgent())
         _supervisor.register_agent(VisionAgent())
+        try:
+            from knowledge import get_knowledge_engine
+            engine = get_knowledge_engine()
+            _supervisor.get_agent("Knowledge").set_engine(engine)
+        except Exception as e:
+            logger.warning(f"Failed to wire knowledge engine to agent: {e}")
         logger.info("Supervisor initialized with all agents")
     return _supervisor
 

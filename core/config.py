@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     security_dir: str = "security"
 
     # AI Models (Phase 2)
-    model_cache_dir: str = "./models"
+    models_dir: str = "./models"
     primary_model: str = "qwen2.5-coder-3b-pentest"
     reasoning_model: str = "deepseek-r1-distill-qwen-7b"
     embedding_model: str = "nomic-embed-text"
