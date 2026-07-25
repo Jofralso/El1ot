@@ -1,0 +1,124 @@
+# ELIOT Production Configuration
+# For Jetson Orin Nano deployment
+
+version: '3.8'
+
+services:
+  core:
+    build:
+      context: .
+      dockerfile: Dockerfile.jetson
+    container_name: eliot-core
+    ports:
+      - "8000:8000"
+    environment:
+      - ELIOT_ENV=production
+      - ELIOT_LOG_LEVEL=WARNING
+      - HARDWARE_TARGET=jetson-orin-nano
+      - CUDA_ENABLED=true
+      - REDIS_HOST=redis
+      - CHROMADB_HOST=chromadb
+      - MQTT_HOST=mqtt
+    volumes:
+      - eliot-data:/app/data
+      - eliot-logs:/app/logs
+      - eliot-models:/app/models
+      - eliot-security:/app/security
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - eliot-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    depends_on:
+      - redis
+      - chromadb
+
+  redis:
+    image: redis:7-alpine
+    container_name: eliot-redis
+    volumes:
+      - redis-data:/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - eliot-network
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: eliot-chromadb
+    volumes:
+      - chromadb-data:/chroma/chroma
+    environment:
+      - ANONYMIZED_TELEMETRY=False
+    restart: always
+    networks:
+      - eliot-network
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: eliot-mqtt
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mqtt-data:/mosquitto/data
+      - mqtt-log:/mosquitto/log
+    restart: always
+    networks:
+      - eliot-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: eliot-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=90d"
+    restart: always
+    networks:
+      - eliot-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: eliot-grafana
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-eliot}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: always
+    networks:
+      - eliot-network
+
+volumes:
+  eliot-data:
+  eliot-logs:
+  eliot-models:
+  eliot-security:
+  redis-data:
+  chromadb-data:
+  prometheus-data:
+  grafana-data:
+  mqtt-data:
+  mqtt-log:
+
+networks:
+  eliot-network:
+    driver: bridge

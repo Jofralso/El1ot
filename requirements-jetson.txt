@@ -1,0 +1,4 @@
+# Jetson-specific dependencies (GPU acceleration)
+llama-cpp-python[cuda]
+nvidia-pyindex
+onnxruntime-gpu

@@ -39,18 +39,20 @@ jobs:
         run: |
           pip install flake8
           # Stop build if there are Python syntax errors or undefined names
-          flake8 core/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 core/ agents/ knowledge/ tools/ security/ hardware/ voice/ vision/ avatar/ ui/ tests/ \
+            --count --select=E9,F63,F7,F82 --show-source --statistics
           # Exit-zero treats all errors as warnings
-          flake8 core/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          flake8 core/ agents/ knowledge/ tools/ security/ hardware/ voice/ vision/ avatar/ ui/ tests/ \
+            --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Type check with mypy (optional)
         run: |
           pip install mypy
-          mypy core/ --ignore-missing-imports || true
+          mypy core/ agents/ knowledge/ tools/ --ignore-missing-imports || true
 
       - name: Run tests
         run: |
-          pytest tests/ -v --cov=core --cov-report=xml
+          pytest tests/ -v --cov=core --cov=agents --cov=knowledge --cov=tools --cov=security --cov=voice --cov=vision --cov=avatar --cov-report=xml
         env:
           REDIS_HOST: localhost
           REDIS_PORT: 6379
@@ -81,12 +83,27 @@ jobs:
 
       - name: Wait for services to be ready
         run: |
-          sleep 5
+          sleep 10
           docker-compose ps
 
       - name: Health check
         run: |
           docker-compose exec -T core curl -f http://localhost:8000/health || exit 1
+
+      - name: API smoke test
+        run: |
+          docker-compose exec -T core python -c "
+          import urllib.request, json
+          r = urllib.request.urlopen('http://localhost:8000/health')
+          d = json.loads(r.read())
+          assert d['status'] in ('healthy', 'degraded'), f'Unexpected status: {d[\"status\"]}'
+          r2 = urllib.request.urlopen('http://localhost:8000/system/ready')
+          d2 = json.loads(r2.read())
+          assert d2['status'] == 'ready'
+          r3 = urllib.request.urlopen('http://localhost:8000/metrics')
+          assert b'eliot_app_info' in r3.read() or b'eliot_requests_total' in r3.read()
+          print('All smoke tests passed')
+          "
 
       - name: Cleanup
         run: |

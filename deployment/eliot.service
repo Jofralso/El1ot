@@ -1,0 +1,18 @@
+[Unit]
+Description=ELIOT - Embedded Local Intelligence Operations Terminal
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/eliot
+ExecStartPre=/usr/bin/docker-compose -f docker-compose.prod.yml pull
+ExecStart=/usr/bin/docker-compose -f docker-compose.prod.yml up -d
+ExecStop=/usr/bin/docker-compose -f docker-compose.prod.yml down
+TimeoutStartSec=120
+User=eliot
+Group=eliot
+
+[Install]
+WantedBy=multi-user.target

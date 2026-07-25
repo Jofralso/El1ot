@@ -1,0 +1,68 @@
+# Multi-stage build for ELIOT on NVIDIA Jetson Orin Nano
+# Uses NVIDIA L4T base image with CUDA support
+
+# Stage 1: Builder
+FROM nvcr.io/nvidia/l4t-pytorch:r35.3.1-pyt2.0-py3 as builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+COPY requirements-jetson.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /build/wheels \
+    -r requirements-jetson.txt -r requirements.txt
+
+# Stage 2: Runtime
+FROM nvcr.io/nvidia/l4t-pytorch:r35.3.1-pyt2.0-py3
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    libopenjp2-7 \
+    libtiff5 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /build/wheels /wheels
+COPY --from=builder /build/requirements.txt .
+COPY --from=builder /build/requirements-jetson.txt .
+
+RUN pip install --no-cache /wheels/* -r requirements-jetson.txt
+
+COPY core /app/core
+COPY agents /app/agents
+COPY knowledge /app/knowledge
+COPY tools /app/tools
+COPY voice /app/voice
+COPY vision /app/vision
+COPY avatar /app/avatar
+COPY ui /app/ui
+COPY hardware /app/hardware
+COPY security /app/security
+COPY config /app/config
+
+RUN mkdir -p /app/data /app/logs /app/security /app/models /app/data/vectordb
+
+COPY core/healthcheck.sh /app/
+RUN chmod +x /app/healthcheck.sh
+
+RUN useradd -m -u 1000 eliot && chown -R eliot:eliot /app
+USER eliot
+
+ENV CUDA_HOME=/usr/local/cuda
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+EXPOSE 8000
+
+CMD ["python", "-m", "core.main"]
