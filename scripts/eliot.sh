@@ -37,17 +37,24 @@ case "$1" in
     ;;
   status)
     if tmux has-session -t "$SESSION" 2>/dev/null; then
-      echo "ELIOT is running (tmux session: $SESSION)"
+      echo "ELIOT core: running (tmux session: $SESSION)"
       curl -s -L http://localhost:8000/health | python3 -m json.tool 2>/dev/null
     else
-      echo "ELIOT is not running"
+      echo "ELIOT core: not running"
     fi
+    systemctl is-active ollama 2>/dev/null && echo "Ollama: running ($(ollama list 2>/dev/null | wc -l) models)" || echo "Ollama: not running"
+    docker ps --format '{{.Names}} {{.Status}}' 2>/dev/null | grep -E "eliot" || echo "Docker: no eliot containers"
     ;;
   logs)
     tmux attach -t "$SESSION"
     ;;
+  ollama-status)
+    systemctl status ollama 2>/dev/null | head -5
+    echo "Models:"
+    ollama list 2>/dev/null
+    ;;
   *)
-    echo "Usage: $0 {start|stop|restart|status|logs}"
+    echo "Usage: $0 {start|stop|restart|status|logs|ollama-status}"
     exit 1
     ;;
 esac
