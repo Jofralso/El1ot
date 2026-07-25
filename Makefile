@@ -64,13 +64,13 @@ test-coverage:
 	python -m pytest tests/ -v --cov=. --cov-report=html --cov-report=term
 
 lint:
-	flake8 core/ agents/ knowledge/ tools/ security/ hardware/ tests/ --max-line-length=127 --exclude=__pycache__
+	flake8 core/ agents/ knowledge/ tools/ security/ hardware/ voice/ vision/ avatar/ ui/ tests/ --max-line-length=127 --exclude=__pycache__
 
 format:
-	black core/ agents/ knowledge/ tools/ security/ hardware/ tests/ --line-length=127
+	black core/ agents/ knowledge/ tools/ security/ hardware/ voice/ vision/ avatar/ ui/ tests/ --line-length=127
 
 type-check:
-	mypy core/ agents/ knowledge/ tools/ --ignore-missing-imports || true
+	mypy core/ agents/ knowledge/ tools/ voice/ vision/ avatar/ --ignore-missing-imports || true
 
 health:
 	@echo "Health check..."

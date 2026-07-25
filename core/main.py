@@ -80,6 +80,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Tool system init skipped: {e}")
 
+    try:
+        from core.inference import get_inference_engine
+        get_inference_engine()
+        logger.info("Inference engine initialized")
+    except Exception as e:
+        logger.warning(f"Inference engine init skipped: {e}")
+
     logger.info("ELIOT CORE SERVICE READY")
     logger.info("=" * 60)
 
@@ -91,7 +98,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ELIOT Core Service",
     description="Embedded Local Intelligence Operations Terminal",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 

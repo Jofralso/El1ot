@@ -3,7 +3,7 @@
 
 A fully local, offline-capable AI cybersecurity companion inspired by Mr. Robot.
 
-**Status**: Phase 2 Complete (v0.2) - Agent framework, knowledge engine, tool system, security, touch UI
+**Status**: Phase 5 Complete (v0.3) - All systems operational
 
 ---
 
@@ -11,16 +11,19 @@ A fully local, offline-capable AI cybersecurity companion inspired by Mr. Robot.
 
 ELIOT is a physical AI appliance running on an NVIDIA Jetson Orin Nano, featuring:
 
-- **Local-first AI** – Qwen2.5-Coder-3B-Pentest + DeepSeek-R1-Distill reasoning
+- **Local-first AI** – Qwen2.5-Coder-3B + DeepSeek-R1-Distill reasoning (all local via llama.cpp)
 - **Offline-capable** – Zero dependency on cloud services
 - **Multi-agent reasoning** – 8 specialized agents coordinated by a supervisor
-- **Knowledge engine** – ChromaDB vector store, semantic search, document ingestion
-- **Voice interaction** – Wake word detection, speech-to-text, text-to-speech (all local)
-- **Vision system** – Face recognition, OCR, visual analysis
-- **Cyberpunk avatar** – 3D animated character with emotional states (Godot)
+- **Knowledge engine** – ChromaDB vector store, semantic search, document ingestion, online/offline updates
+- **Voice interaction** – Wake word detection, speech-to-text (Whisper), text-to-speech (Piper), audio capture/playback
+- **Vision system** – Face recognition, OCR, camera management, frame processing
+- **Cyberpunk avatar** – 3D animated character with emotional states, lip sync, WebSocket bridge (Godot)
 - **Touch interface** – Web-based UI with 6 pages
 - **Tool system** – MCP-compatible with permission checks and audit logging
 - **Security model** – User/target whitelist, RBAC, audit trail
+- **AI inference** – llama.cpp GPU-accelerated backend with model management and download
+- **Knowledge updates** – Online/offline update pipeline with integrity verification
+- **Hardware abstraction** – Auto-detect Jetson/Pi/Desktop, GPU, camera, audio
 
 ELIOT assists with authorized cybersecurity assessments, CTF environments, and personal laboratories.
 
@@ -50,31 +53,12 @@ ELIOT assists with authorized cybersecurity assessments, CTF environments, and p
 
 ---
 
-## Development Phases
-
-- [x] **Phase 1 – Foundation** (v0.1)
-  - Repository scaffolding, Docker Compose, core service, configuration, health, monitoring
-
-- [x] **Phase 2 – AI Models & Agents** (v0.2) ← **Current**
-  - Agent framework (8 agents), tool system, knowledge engine, security, touch UI, hardware abstraction
-
-- [ ] Phase 3 – Voice & Vision Integration (v0.3)
-  - Whisper.cpp, Piper TTS, OpenWakeWord, face recognition, OCR
-
-- [ ] Phase 4 – Avatar Engine (v0.4)
-  - Godot Engine integration, WebSocket bridge, animations, emotions
-
-- [ ] Phase 5 – Deployment (v0.5)
-  - Production optimization, Jetson-specific tweaks, Raspberry Pi TFT
-
----
-
 ## Quick Start
 
 ### Docker (Recommended)
 
 ```bash
-git clone https://github.com/yourusername/eliot.git
+git clone https://github.com/Jofralso/El1ot.git
 cd eliot
 
 cp .env.example .env
@@ -91,32 +75,59 @@ pip install -r requirements.txt
 uvicorn core.main:app --reload
 ```
 
+### Installation Script
+
+```bash
+chmod +x scripts/install.sh
+sudo ./scripts/install.sh
+```
+
+The installer auto-detects your hardware (Jetson/Pi/Desktop), downloads models, and configures services.
+
 ### Touch UI
 
 Open `http://localhost:8000/ui/` in a browser.
 
 ---
 
-## API Highlights
+## API Endpoints
 
 ```bash
+# Health & status
+curl http://localhost:8000/health/detailed
+curl http://localhost:8000/metrics
+
 # Chat with agents
 curl -X POST http://localhost:8000/agents/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "create a plan for network reconnaissance"}'
 
-# Search knowledge
+# Voice interaction
+curl -X POST http://localhost:8000/voice/speak \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello, I am ELIOT"}'
+
+# Vision
+curl http://localhost:8000/vision/status
+
+# Avatar WebSocket
+wscat -c ws://localhost:8000/avatar/ws
+
+# Knowledge
 curl -X POST http://localhost:8000/knowledge/search \
   -H "Content-Type: application/json" \
   -d '{"query": "buffer overflow vulnerability"}'
 
-# List tools
+# Tools
 curl http://localhost:8000/tools/
-
-# Execute tool
 curl -X POST http://localhost:8000/tools/system_info/execute \
   -H "Content-Type: application/json" \
   -d '{"params": {}, "user_permissions": ["admin"]}'
+
+# AI inference
+curl -X POST http://localhost:8000/voice/converse \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What is SQL injection?"}'
 ```
 
 ---
@@ -125,23 +136,74 @@ curl -X POST http://localhost:8000/tools/system_info/execute \
 
 ```
 ELIOT/
-├── core/                  # Core service (FastAPI, routes, config)
+├── core/                  # Core service (FastAPI, routes, config, inference engine)
 ├── agents/                # Multi-agent system (8 agents + supervisor)
-├── knowledge/             # Knowledge engine (ChromaDB, embeddings, ingestion)
+├── knowledge/             # Knowledge engine (ChromaDB, embeddings, ingestion, updates)
 ├── tools/                 # MCP-compatible tool system
-├── voice/                 # Voice system (STT, TTS, wake word)
-├── vision/                # Vision system (camera, face, OCR)
-├── avatar/                # Avatar engine (Godot integration)
+├── voice/                 # Voice system (STT, TTS, wake word, audio, conversation)
+├── vision/                # Vision system (camera, face recognition, OCR, frame processing)
+├── avatar/                # Avatar engine (WebSocket, lip sync, emotions, animations)
 ├── ui/                    # Touch interface (web-based)
 ├── hardware/              # Hardware abstraction layer
 ├── security/              # Users, targets, permissions, audit
 ├── monitoring/            # Prometheus + Grafana
+├── deployment/            # Systemd service files
+├── scripts/               # Install and setup scripts
 ├── docs/                  # Documentation
-├── tests/                 # Test suite (30+ tests)
+├── tests/                 # Test suite (200+ tests)
 ├── config/                # Mosquitto, runtime config
+├── models/                # GGUF model files (downloaded)
 ├── .github/               # CI/CD workflows
 ├── docker-compose.yml     # Service orchestration (6 services)
+├── docker-compose.prod.yml # Production compose
+├── Dockerfile.jetson      # Jetson-specific Docker build
 └── Makefile               # Developer commands
+```
+
+---
+
+## Development Phases
+
+- [x] Phase 1 – Foundation (v0.1) – Repository, Docker, core service, config, health, monitoring
+- [x] Phase 2 – AI Models & Agents (v0.2) – Agent framework, tools, knowledge, security, touch UI
+- [x] Phase 3 – Voice & Vision (v0.3) – Whisper, Piper TTS, camera, face recognition, OCR
+- [x] Phase 4 – Avatar Engine (v0.4) – Godot WebSocket, lip sync, emotions, animations
+- [x] Phase 5 – Deployment (v0.5) – Jetson Dockerfile, Pi setup, systemd, installer
+
+---
+
+## Testing
+
+```bash
+make test              # Run all tests
+make test-coverage     # Run with coverage
+make lint              # Lint all modules
+make type-check        # Type checking
+```
+
+---
+
+## Deployment
+
+### Jetson Orin Nano
+
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### Raspberry Pi (Avatar Display)
+
+```bash
+chmod +x scripts/setup-pi.sh
+sudo ./scripts/setup-pi.sh
+```
+
+### Production (Systemd)
+
+```bash
+sudo cp deployment/eliot.service /etc/systemd/system/
+sudo systemctl enable eliot
+sudo systemctl start eliot
 ```
 
 ---
