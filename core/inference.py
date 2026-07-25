@@ -330,6 +330,184 @@ except ImportError:
     LLAMA_CPP_AVAILABLE = False
     Llama = None
 
+try:
+    import ollama as _ollama
+
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    OLLAMA_AVAILABLE = False
+    _ollama = None
+
+
+class OllamaInference:
+    """Inference backend using Ollama API."""
+
+    def __init__(
+        self,
+        host: str = "http://localhost:11434",
+        model: str = "qwen2.5:3b",
+    ) -> None:
+        self.host = host
+        self.model = model
+        self._loaded = True
+        self._backend = GPUDetector.detect_backend()
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None and OLLAMA_AVAILABLE:
+            self._client = _ollama.Client(host=self.host)
+        return self._client
+
+    def load(self) -> None:
+        if not OLLAMA_AVAILABLE:
+            logger.warning("ollama package not installed.")
+            self._loaded = False
+            return
+        try:
+            client = self._get_client()
+            if client:
+                client.list()
+            self._loaded = True
+            logger.info("Ollama backend ready at %s (model: %s)", self.host, self.model)
+        except Exception as e:
+            logger.error("Ollama connection failed: %s", e)
+            self._loaded = False
+
+    def unload(self) -> None:
+        self._loaded = False
+        self._client = None
+
+    def complete(
+        self,
+        prompt: str,
+        max_tokens: int = 512,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        top_k: int = 40,
+        repeat_penalty: float = 1.1,
+        stop: Optional[List[str]] = None,
+        system_prompt: Optional[str] = None,
+        context: Optional[str] = None,
+    ) -> InferenceResponse:
+        client = self._get_client()
+        if not client or not self._loaded:
+            return self._fallback_complete(prompt)
+
+        messages = []
+        sys_text = "You are a helpful assistant."
+        if system_prompt:
+            sys_text = system_prompt
+        if context:
+            sys_text += f"\n\nContext:\n{context}"
+        messages.append({"role": "system", "content": sys_text})
+        messages.append({"role": "user", "content": prompt})
+
+        start_time = time.perf_counter()
+        try:
+            result = client.chat(
+                model=self.model,
+                messages=messages,
+                options={
+                    "temperature": temperature,
+                    "top_p": top_p,
+                    "top_k": top_k,
+                    "repeat_penalty": repeat_penalty,
+                    "num_predict": max_tokens,
+                },
+                keep_alive="30m",
+            )
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
+            text = result.message.content
+            tokens_generated = getattr(result, "eval_count", 0) or int(len(text.split()) * 1.3)
+            tokens_per_sec = (
+                tokens_generated / (elapsed_ms / 1000) if elapsed_ms > 0 else 0
+            )
+            return InferenceResponse(
+                text=text,
+                model=self.model,
+                tokens_generated=tokens_generated,
+                tokens_per_sec=round(tokens_per_sec, 2),
+                total_duration_ms=round(elapsed_ms, 2),
+                finish_reason="stop",
+                metadata={"backend": "ollama", "host": self.host},
+            )
+        except Exception as e:
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
+            logger.error("Ollama inference failed: %s", e)
+            return InferenceResponse(
+                text="",
+                model=self.model,
+                tokens_generated=0,
+                tokens_per_sec=0.0,
+                total_duration_ms=round(elapsed_ms, 2),
+                finish_reason="error",
+                metadata={"error": str(e)},
+            )
+
+    def stream(
+        self,
+        prompt: str,
+        max_tokens: int = 512,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        top_k: int = 40,
+        repeat_penalty: float = 1.1,
+        stop: Optional[List[str]] = None,
+        system_prompt: Optional[str] = None,
+        context: Optional[str] = None,
+    ) -> Generator[str, None, None]:
+        client = self._get_client()
+        if not client or not self._loaded:
+            yield f"[Ollama not available: {self.host}]"
+            return
+
+        messages = []
+        sys_text = "You are a helpful assistant."
+        if system_prompt:
+            sys_text = system_prompt
+        if context:
+            sys_text += f"\n\nContext:\n{context}"
+        messages.append({"role": "system", "content": sys_text})
+        messages.append({"role": "user", "content": prompt})
+
+        try:
+            stream = client.chat(
+                model=self.model,
+                messages=messages,
+                options={
+                    "temperature": temperature,
+                    "top_p": top_p,
+                    "top_k": top_k,
+                    "repeat_penalty": repeat_penalty,
+                    "num_predict": max_tokens,
+                },
+                stream=True,
+                keep_alive="30m",
+            )
+            for chunk in stream:
+                if chunk.message and chunk.message.content:
+                    yield chunk.message.content
+        except Exception as e:
+            logger.error("Ollama streaming failed: %s", e)
+            yield f"[Error: {e}]"
+
+    def _fallback_complete(
+        self, prompt: str, max_tokens: int = 512
+    ) -> InferenceResponse:
+        response_text = (
+            "[ELIOT Inference] Ollama backend not available. "
+            "Ensure ollama is running and accessible."
+        )
+        return InferenceResponse(
+            text=response_text,
+            model="fallback",
+            tokens_generated=len(response_text.split()),
+            tokens_per_sec=0.0,
+            total_duration_ms=0.0,
+            finish_reason="stop",
+            metadata={"fallback": True, "prompt": prompt[:200]},
+        )
+
 
 class LlamaCppInference:
 
@@ -535,15 +713,34 @@ _inference_engine_instance: Optional["InferenceEngine"] = None
 
 class InferenceEngine:
 
-    def __init__(self, models_dir: str = "./models") -> None:
+    def __init__(
+        self,
+        models_dir: str = "./models",
+        ollama_host: str = "http://localhost:11434",
+        ollama_model: str = "qwen2.5:3b",
+    ) -> None:
         self.model_manager = ModelManager(models_dir)
-        self._loaded_backends: Dict[str, LlamaCppInference] = {}
+        self._ollama_host = ollama_host
+        self._ollama_model = ollama_model
+        self._loaded_backends: Dict[str, Any] = {}
+        self._ollama_backend: Optional[OllamaInference] = None
         self._default_model = "qwen2.5-coder-3b"
         self._initialized = False
         self._gpu_info = GPUDetector.get_gpu_info()
         logger.info("InferenceEngine created with GPU backend: %s", self._gpu_info["backend"])
 
     async def initialize(self, model_id: Optional[str] = None) -> None:
+        if OLLAMA_AVAILABLE:
+            self._ollama_backend = OllamaInference(
+                host=self._ollama_host,
+                model=self._ollama_model,
+            )
+            self._ollama_backend.load()
+            if self._ollama_backend._loaded:
+                self._initialized = True
+                logger.info("InferenceEngine initialized with Ollama backend (model: %s)", self._ollama_model)
+                return
+
         target = model_id or self._default_model
         if not self.model_manager.is_downloaded(target):
             logger.warning(
@@ -569,6 +766,9 @@ class InferenceEngine:
         self._loaded_backends[model_id] = backend
 
     def shutdown(self) -> None:
+        if self._ollama_backend:
+            self._ollama_backend.unload()
+            self._ollama_backend = None
         for model_id, backend in self._loaded_backends.items():
             logger.info("Unloading model %s", model_id)
             backend.unload()
@@ -576,17 +776,22 @@ class InferenceEngine:
         self._initialized = False
         logger.info("InferenceEngine shut down")
 
+    def _get_backend(self, model_id: str) -> Any:
+        if self._ollama_backend and self._ollama_backend._loaded:
+            return self._ollama_backend
+        if model_id in self._loaded_backends:
+            return self._loaded_backends.get(model_id)
+        return None
+
     def complete(self, request: InferenceRequest) -> InferenceResponse:
         model_id = request.model
-        if model_id not in self._loaded_backends:
-            self._load_model(model_id)
-        backend = self._loaded_backends.get(model_id)
+        backend = self._get_backend(model_id)
         if backend is None:
             return InferenceResponse(
                 text="",
                 model=model_id,
                 finish_reason="error",
-                metadata={"error": f"Model {model_id} not available"},
+                metadata={"error": f"No inference backend available for model {model_id}"},
             )
         return backend.complete(
             prompt=request.prompt,
@@ -602,11 +807,9 @@ class InferenceEngine:
 
     def stream(self, request: InferenceRequest) -> Generator[str, None, None]:
         model_id = request.model
-        if model_id not in self._loaded_backends:
-            self._load_model(model_id)
-        backend = self._loaded_backends.get(model_id)
+        backend = self._get_backend(model_id)
         if backend is None:
-            yield f"[Error: Model {model_id} not available]"
+            yield f"[Error: No inference backend available for model {model_id}]"
             return
         yield from backend.stream(
             prompt=request.prompt,
@@ -624,10 +827,15 @@ class InferenceEngine:
         return {
             "initialized": self._initialized,
             "gpu": self._gpu_info,
+            "backend": "ollama" if self._ollama_backend and self._ollama_backend._loaded else "llama_cpp",
+            "ollama_host": self._ollama_host if self._ollama_backend else None,
+            "ollama_model": self._ollama_model if self._ollama_backend else None,
             "loaded_models": {
                 mid: {
                     "loaded": True,
-                    "backend": backend._backend.value,
+                    "backend": getattr(backend, "_backend", GPUBackend.CPU).value
+                    if hasattr(backend, "_backend")
+                    else "ollama",
                 }
                 for mid, backend in self._loaded_backends.items()
             },
@@ -651,5 +859,10 @@ class InferenceEngine:
 def get_inference_engine() -> InferenceEngine:
     global _inference_engine_instance
     if _inference_engine_instance is None:
-        _inference_engine_instance = InferenceEngine()
+        from core.config import settings
+        _inference_engine_instance = InferenceEngine(
+            models_dir=settings.models_dir,
+            ollama_host=settings.ollama_host,
+            ollama_model=settings.ollama_model,
+        )
     return _inference_engine_instance

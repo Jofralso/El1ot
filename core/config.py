@@ -44,10 +44,16 @@ class Settings(BaseSettings):
 
     # AI Models (Phase 2)
     models_dir: str = "./models"
-    primary_model: str = "qwen2.5-coder-3b-pentest"
-    reasoning_model: str = "deepseek-r1-distill-qwen-7b"
+    primary_model: str = "qwen2.5-coder-3b"
+    reasoning_model: str = "deepseek-r1-distill-1.5b"
     embedding_model: str = "nomic-embed-text"
     cuda_enabled: bool = False
+
+    # Ollama
+    ollama_host: str = "http://localhost:11434"
+    ollama_model: str = "qwen2.5:3b"
+
+    # LlamaCpp (legacy fallback)
     llama_cpp_host: str = "llama-cpp"
     llama_cpp_port: int = 8080
 

@@ -82,7 +82,10 @@ async def lifespan(app: FastAPI):
 
     try:
         from core.inference import get_inference_engine
-        get_inference_engine()
+        engine = get_inference_engine()
+        import asyncio
+        loop = asyncio.get_event_loop()
+        loop.create_task(engine.initialize())
         logger.info("Inference engine initialized")
     except Exception as e:
         logger.warning(f"Inference engine init skipped: {e}")
