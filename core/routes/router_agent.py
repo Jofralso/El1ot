@@ -42,9 +42,16 @@ def get_supervisor() -> SupervisorAgent:
             from knowledge import get_knowledge_engine
             engine = get_knowledge_engine()
             _supervisor.get_agent("Knowledge").set_engine(engine)
+            _supervisor.get_agent("Research").set_engine(engine)
         except Exception as e:
             logger.warning(f"Failed to wire knowledge engine to agent: {e}")
-        logger.info("Supervisor initialized with all agents")
+
+        _supervisor.define_workflow("recon", ["Planner", "Research", "Analysis", "Documentation"])
+        _supervisor.define_workflow("vuln_assessment", ["Knowledge", "Research", "Analysis", "Code", "Documentation"])
+        _supervisor.define_workflow("incident_response", ["Planner", "Analysis", "Research", "Knowledge", "Documentation"])
+        _supervisor.define_workflow("pentest", ["Planner", "Research", "Code", "Analysis", "Documentation"])
+
+        logger.info("Supervisor initialized with all agents and 4 workflows")
     return _supervisor
 
 
@@ -143,3 +150,26 @@ async def execute_workflow(workflow_name: str, request: ChatRequest):
         message_type=response.message_type,
         metadata=response.metadata,
     )
+
+
+@router.get("/workflows/list")
+async def list_workflows():
+    """List all available workflows."""
+    supervisor = get_supervisor()
+    return {
+        "workflows": {
+            name: {
+                "agents": agents,
+                "description": _WORKFLOW_DESCRIPTIONS.get(name, "No description"),
+            }
+            for name, agents in supervisor._workflows.items()
+        }
+    }
+
+
+_WORKFLOW_DESCRIPTIONS = {
+    "recon": "Reconnaissance workflow: Plan -> Research target -> Analyze findings -> Document",
+    "vuln_assessment": "Vulnerability assessment: Knowledge lookup -> Research CVEs -> Analyze -> Generate remediation code -> Document",
+    "incident_response": "Incident response: Plan -> Analyze indicators -> Research threat -> Query knowledge -> Document",
+    "pentest": "Penetration test: Plan -> Research target -> Generate tooling -> Analyze results -> Document",
+}

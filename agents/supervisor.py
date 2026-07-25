@@ -74,12 +74,31 @@ class SupervisorAgent(BaseAgent):
         content = message.content.lower()
 
         target_agent = self._resolve_target(content)
-
         if target_agent:
             agent = self._agents.get(target_agent)
             if agent:
                 logger.info(f"Supervisor routing to: {target_agent}")
                 return await agent.handle(message)
+
+        llm_result = await self._llm_generate(
+            prompt=(
+                f"User message: {message.content}\n\n"
+                f"Available agents: {', '.join(f'{n} ({a.description})' for n, a in self._agents.items())}\n\n"
+                f"Which single agent should handle this message? Reply with ONLY the agent name."
+            ),
+            system_prompt=(
+                "You are ELIOT CORE, the supervisor agent. You route user messages to specialist agents. "
+                "Reply with ONLY the agent name, nothing else."
+            ),
+            max_tokens=20,
+            temperature=0.1,
+        )
+        if llm_result:
+            resolved = llm_result.strip().strip('"').strip("'")
+            for name in self._agents:
+                if name.lower() in resolved.lower():
+                    logger.info(f"Supervisor LLM routing to: {name}")
+                    return await self._agents[name].handle(message)
 
         if any(kw in content for kw in ["analyze", "summary", "report findings"]):
             return await self._route_to("Analysis", message)

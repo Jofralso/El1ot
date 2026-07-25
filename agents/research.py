@@ -28,6 +28,39 @@ class ResearchAgent(BaseAgent):
 
     async def process(self, message: AgentMessage) -> AgentMessage:
         query = message.content
+        results = []
+        if self._engine:
+            results = await self._engine.search(query, top_k=10)
+
+        if results:
+            context_chunks = "\n".join(
+                f"[{r.get('source', 'unknown')}] {r.get('text', '')[:500]}"
+                for r in results[:5]
+            )
+            llm_research = await self._llm_generate(
+                prompt=(
+                    f"Based on the following knowledge base results, provide a comprehensive "
+                    f"research summary for the query: {query}\n\n"
+                    f"Knowledge base context:\n{context_chunks}\n\n"
+                    f"Synthesize this information into a clear, actionable research report."
+                ),
+                system_prompt=(
+                    "You are the Research agent for the ELIOT cybersecurity system. "
+                    "Synthesize knowledge base results into clear, actionable security intelligence. "
+                    "Reference specific findings and provide context."
+                ),
+                max_tokens=1024,
+                temperature=0.3,
+            )
+            if llm_research:
+                return AgentMessage(
+                    sender=self.name,
+                    receiver=message.sender,
+                    content=llm_research,
+                    message_type="research",
+                    metadata={"query": query, "source": "llm", "results_count": len(results)},
+                )
+
         research = await self._research(query)
         return AgentMessage(
             sender=self.name,

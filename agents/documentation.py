@@ -24,13 +24,46 @@ class DocumentationAgent(BaseAgent):
         )
 
     async def process(self, message: AgentMessage) -> AgentMessage:
-        doc = self._create_document(message.content, message.metadata)
+        content = message.content
+        content_lower = content.lower()
+
+        doc_type = "document"
+        if any(kw in content_lower for kw in ["report", "summary", "assessment"]):
+            doc_type = "security assessment report"
+        elif any(kw in content_lower for kw in ["readme", "overview", "project"]):
+            doc_type = "project overview"
+
+        llm_doc = await self._llm_generate(
+            prompt=(
+                f"Generate a well-structured {doc_type} based on the following input. "
+                f"Use proper markdown formatting with headers, sections, and clear structure.\n\n"
+                f"Input:\n{content}"
+            ),
+            system_prompt=(
+                "You are the Documentation agent for the ELIOT cybersecurity system. "
+                "Create professional, well-structured security documentation and reports. "
+                "Use markdown formatting with clear sections, bullet points, and actionable items."
+            ),
+            max_tokens=2048,
+            temperature=0.4,
+        )
+
+        if llm_doc:
+            return AgentMessage(
+                sender=self.name,
+                receiver=message.sender,
+                content=llm_doc.strip(),
+                message_type="document",
+                metadata={"doc_type": doc_type, "generated_at": time.time(), "source": "llm"},
+            )
+
+        doc = self._create_document(content, message.metadata)
         return AgentMessage(
             sender=self.name,
             receiver=message.sender,
             content=doc,
             message_type="document",
-            metadata={"doc_type": "report", "generated_at": time.time()},
+            metadata={"doc_type": "report", "generated_at": time.time(), "source": "template"},
         )
 
     def _create_document(self, content: str, metadata: Dict[str, Any]) -> str:

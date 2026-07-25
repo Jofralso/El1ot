@@ -23,13 +23,40 @@ class CodeAgent(BaseAgent):
         )
 
     async def process(self, message: AgentMessage) -> AgentMessage:
-        code_response = self._generate_code(message.content)
+        request = message.content
+
+        llm_code = await self._llm_generate(
+            prompt=(
+                f"Generate a complete, working Python script for the following request. "
+                f"Return ONLY the code, no explanation. Include proper comments and error handling.\n\n"
+                f"Request: {request}"
+            ),
+            system_prompt=(
+                "You are the Code agent for the ELIOT cybersecurity system. "
+                "Generate clean, well-documented Python scripts for security tasks. "
+                "Always include proper error handling, argument parsing, and authorization checks. "
+                "Return ONLY executable code, no markdown formatting."
+            ),
+            max_tokens=2048,
+            temperature=0.3,
+        )
+
+        if llm_code:
+            return AgentMessage(
+                sender=self.name,
+                receiver=message.sender,
+                content=llm_code.strip().removeprefix("```python").removesuffix("```").strip(),
+                message_type="code",
+                metadata={"language": "python", "type": "llm_generated", "source": "llm"},
+            )
+
+        code_response = self._generate_code(request)
         return AgentMessage(
             sender=self.name,
             receiver=message.sender,
             content=code_response,
             message_type="code",
-            metadata={"language": "python", "type": "generated"},
+            metadata={"language": "python", "type": "generated", "source": "template"},
         )
 
     def _generate_code(self, request: str) -> str:

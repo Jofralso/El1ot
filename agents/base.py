@@ -73,8 +73,12 @@ class BaseAgent(ABC):
     """
     Base class for all ELIOT agents.
 
-    Provides lifecycle management, message passing, memory, permission checks, and audit logging.
+    Provides lifecycle management, message passing, memory, permission checks, audit logging,
+    and optional LLM inference via Ollama.
     """
+
+    _llm_engine = None
+    _llm_checked = False
 
     def __init__(
         self,
@@ -97,6 +101,44 @@ class BaseAgent(ABC):
         self._task_count = 0
         self._error_count = 0
         logger.info(f"Agent initialized: {self.name} ({self.role.value})")
+
+    @classmethod
+    def _get_llm(cls):
+        if cls._llm_checked:
+            return cls._llm_engine
+        cls._llm_checked = True
+        try:
+            from core.inference import get_inference_engine
+            engine = get_inference_engine()
+            if engine._initialized and engine._ollama_backend and engine._ollama_backend._loaded:
+                cls._llm_engine = engine
+                logger.info("Agents connected to LLM inference engine")
+        except Exception as e:
+            logger.warning(f"LLM not available for agents: {e}")
+        return cls._llm_engine
+
+    async def _llm_generate(
+        self,
+        prompt: str,
+        system_prompt: str = "",
+        max_tokens: int = 1024,
+        temperature: float = 0.7,
+    ) -> Optional[str]:
+        engine = self._get_llm()
+        if not engine:
+            return None
+        from core.inference import InferenceRequest
+        req = InferenceRequest(
+            prompt=prompt,
+            system_prompt=system_prompt or f"You are {self.name}, a {self.role.value} agent in the ELIOT cybersecurity system.",
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        resp = engine.complete(req)
+        if resp.finish_reason == "error":
+            logger.warning(f"LLM error for {self.name}: {resp.metadata.get('error')}")
+            return None
+        return resp.text
 
     @abstractmethod
     async def process(self, message: AgentMessage) -> AgentMessage:

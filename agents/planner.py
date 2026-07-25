@@ -23,13 +23,44 @@ class PlannerAgent(BaseAgent):
         )
 
     async def process(self, message: AgentMessage) -> AgentMessage:
+        llm_plan = await self._llm_generate(
+            prompt=(
+                f"Create an execution plan for the following goal. "
+                f"Return a JSON object with keys: goal (string), steps (list of objects with step number, action, description), "
+                f"required_agents (list of agent name strings).\n\n"
+                f"Available agents: Planner, Analysis, Research, Code, Documentation, Knowledge, Voice, Vision\n\n"
+                f"Goal: {message.content}"
+            ),
+            system_prompt=(
+                "You are the Planner agent for the ELIOT cybersecurity system. "
+                "Create detailed, actionable execution plans for security-related tasks. "
+                "Always return valid JSON only, no markdown formatting."
+            ),
+            max_tokens=1024,
+            temperature=0.3,
+        )
+
+        if llm_plan:
+            import json
+            try:
+                plan = json.loads(llm_plan.strip().removeprefix("```json").removesuffix("```").strip())
+                return AgentMessage(
+                    sender=self.name,
+                    receiver=message.sender,
+                    content=self._format_plan(plan),
+                    message_type="plan",
+                    metadata={"plan": plan, "source": "llm"},
+                )
+            except (json.JSONDecodeError, KeyError):
+                pass
+
         plan = self._create_plan(message.content)
         return AgentMessage(
             sender=self.name,
             receiver=message.sender,
             content=self._format_plan(plan),
             message_type="plan",
-            metadata={"plan": plan},
+            metadata={"plan": plan, "source": "template"},
         )
 
     def _create_plan(self, goal: str) -> Dict[str, Any]:

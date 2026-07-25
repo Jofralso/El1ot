@@ -24,13 +24,38 @@ class AnalysisAgent(BaseAgent):
 
     async def process(self, message: AgentMessage) -> AgentMessage:
         content = message.content
+
+        llm_analysis = await self._llm_generate(
+            prompt=(
+                f"Analyze the following content and provide a structured security analysis. "
+                f"Include: key findings, risks identified, severity assessment, and actionable recommendations.\n\n"
+                f"Content:\n{content}"
+            ),
+            system_prompt=(
+                "You are the Analysis agent for the ELIOT cybersecurity system. "
+                "Provide thorough, structured analysis of security-related information. "
+                "Be precise, identify risks, and give actionable recommendations."
+            ),
+            max_tokens=1024,
+            temperature=0.3,
+        )
+
+        if llm_analysis:
+            return AgentMessage(
+                sender=self.name,
+                receiver=message.sender,
+                content=llm_analysis,
+                message_type="analysis",
+                metadata={"analysis_type": "llm", "input_length": len(content), "source": "llm"},
+            )
+
         analysis = self._analyze(content)
         return AgentMessage(
             sender=self.name,
             receiver=message.sender,
             content=analysis,
             message_type="analysis",
-            metadata={"analysis_type": "summary", "input_length": len(content)},
+            metadata={"analysis_type": "summary", "input_length": len(content), "source": "template"},
         )
 
     def _analyze(self, content: str) -> str:

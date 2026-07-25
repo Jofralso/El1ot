@@ -28,25 +28,54 @@ class KnowledgeAgent(BaseAgent):
 
     async def process(self, message: AgentMessage) -> AgentMessage:
         query = message.content
-        context = message.metadata.get("context", {})
 
-        if self._engine:
-            results = await self._engine.search(query, top_k=5)
-            content = self._format_results(results)
-            metadata = {"results": results, "query": query}
-        else:
-            content = (
-                "Knowledge engine not yet initialized. "
-                "Please start the knowledge service to enable search."
+        if not self._engine:
+            return AgentMessage(
+                sender=self.name,
+                receiver=message.sender,
+                content="Knowledge engine not yet initialized. Please start the knowledge service to enable search.",
+                message_type="knowledge_response",
+                metadata={"query": query, "engine_status": "not_initialized"},
             )
-            metadata = {"query": query, "engine_status": "not_initialized"}
 
+        results = await self._engine.search(query, top_k=5)
+
+        if results:
+            context_chunks = "\n".join(
+                f"[{r.get('source', 'unknown')}] {r.get('text', '')[:400]}"
+                for r in results
+            )
+            llm_answer = await self._llm_generate(
+                prompt=(
+                    f"Answer the user's question using ONLY the provided knowledge base context. "
+                    f"Cite specific sources. If the context doesn't contain enough info, say so.\n\n"
+                    f"Question: {query}\n\n"
+                    f"Knowledge base context:\n{context_chunks}"
+                ),
+                system_prompt=(
+                    "You are the Knowledge agent for the ELIOT cybersecurity system. "
+                    "Answer questions accurately using the provided knowledge base context. "
+                    "Always cite sources. Be concise and actionable."
+                ),
+                max_tokens=1024,
+                temperature=0.3,
+            )
+            if llm_answer:
+                return AgentMessage(
+                    sender=self.name,
+                    receiver=message.sender,
+                    content=llm_answer,
+                    message_type="knowledge_response",
+                    metadata={"query": query, "source": "llm", "results_count": len(results)},
+                )
+
+        content = self._format_results(results)
         return AgentMessage(
             sender=self.name,
             receiver=message.sender,
             content=content,
             message_type="knowledge_response",
-            metadata=metadata,
+            metadata={"query": query, "results": results, "source": "template"},
         )
 
     def _format_results(self, results: list) -> str:
