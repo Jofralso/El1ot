@@ -123,6 +123,7 @@ class BaseAgent(ABC):
         system_prompt: str = "",
         max_tokens: int = 1024,
         temperature: float = 0.7,
+        model: Optional[str] = None,
     ) -> Optional[str]:
         engine = self._get_llm()
         if not engine:
@@ -133,6 +134,7 @@ class BaseAgent(ABC):
             system_prompt=system_prompt or f"You are {self.name}, a {self.role.value} agent in the ELIOT cybersecurity system.",
             max_tokens=max_tokens,
             temperature=temperature,
+            model=model or engine._ollama_model,
         )
         resp = engine.complete(req)
         if resp.finish_reason == "error":

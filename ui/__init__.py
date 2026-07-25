@@ -684,14 +684,45 @@ async function sendChat() {
   scrollChat();
 
   try {
-    const r = await fetch('/agents/chat', {
+    // Check if this is a shell command (starts with !)
+    let endpoint = '/agents/chat';
+    let body = {message: msg};
+    
+    if (msg.startsWith('!')) {
+      // Route to shell agent
+      endpoint = '/agents/chat';
+      body = {message: msg, agent: 'Shell'};
+    } else if (msg.toLowerCase().startsWith('launch ') || msg.toLowerCase().startsWith('open ')) {
+      // Route to shell agent for app launching
+      endpoint = '/agents/chat';
+      body = {message: msg, agent: 'Shell'};
+    } else if (msg.toLowerCase().startsWith('chain ')) {
+      // Route to shell agent for event chaining
+      endpoint = '/agents/chat';
+      body = {message: msg, agent: 'Shell'};
+    } else if (msg.toLowerCase().startsWith('analyze ') || msg.toLowerCase().startsWith('analyse ')) {
+      // Route to shell agent for command analysis
+      endpoint = '/agents/chat';
+      body = {message: msg, agent: 'Shell'};
+    }
+    
+    const r = await fetch(endpoint, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({message: msg})
+      body: JSON.stringify(body)
     });
     const d = await r.json();
     typing.remove();
-    addChatMsg(d.content, 'agent', d.sender);
+    
+    // Handle command output specially
+    if (d.message_type === 'command_output' || d.message_type === 'chain_output') {
+      addCommandOutput(d.content, d.metadata);
+    } else if (d.message_type === 'warning' && d.metadata?.requires_confirmation) {
+      addConfirmationPrompt(d.content, d.metadata.command);
+    } else {
+      addChatMsg(d.content, 'agent', d.sender);
+    }
+    
     chatHistory.push({role:'user', content:msg}, {role:'assistant', content:d.content, sender:d.sender});
 
     if (ws && ws.readyState === 1) {
@@ -713,6 +744,55 @@ function addChatMsg(text, type, sender) {
   div.innerHTML = '<div class="msg-sender">' + senderLabel + '</div>' + escapeHtml(text);
   box.appendChild(div);
   scrollChat();
+}
+
+function addCommandOutput(text, metadata) {
+  const box = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg agent';
+  
+  const command = metadata?.command || '';
+  const returnCode = metadata?.return_code;
+  
+  let header = '<div class="msg-sender">SHELL</div>';
+  header += '<div style="color:var(--cyan);font-size:11px;margin-bottom:8px;">$ ' + escapeHtml(command) + '</div>';
+  
+  if (returnCode !== undefined) {
+    const color = returnCode === 0 ? 'var(--green)' : 'var(--red)';
+    header += '<div style="color:' + color + ';font-size:10px;margin-bottom:8px;">Exit code: ' + returnCode + '</div>';
+  }
+  
+  div.innerHTML = header + '<pre style="margin:0;white-space:pre-wrap;font-size:12px;line-height:1.4;">' + escapeHtml(text) + '</pre>';
+  box.appendChild(div);
+  scrollChat();
+}
+
+function addConfirmationPrompt(text, command) {
+  const box = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg agent';
+  div.style.borderColor = 'var(--orange)';
+  
+  let html = '<div class="msg-sender" style="color:var(--orange);">WARNING</div>';
+  html += '<div style="color:var(--orange);margin-bottom:8px;">' + escapeHtml(text) + '</div>';
+  html += '<div style="display:flex;gap:8px;margin-top:8px;">';
+  html += '<button onclick="confirmCommand(\'' + escapeHtml(command) + '\')" style="background:var(--red);color:#000;border:none;padding:6px 12px;cursor:pointer;font-weight:bold;">Confirm</button>';
+  html += '<button onclick="cancelCommand()" style="background:#333;color:#fff;border:none;padding:6px 12px;cursor:pointer;">Cancel</button>';
+  html += '</div>';
+  
+  div.innerHTML = html;
+  box.appendChild(div);
+  scrollChat();
+}
+
+function confirmCommand(command) {
+  document.getElementById('chat-input').value = 'confirm ' + command;
+  sendChat();
+}
+
+function cancelCommand() {
+  document.getElementById('chat-input').value = 'cancel';
+  sendChat();
 }
 
 function scrollChat() {

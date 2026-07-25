@@ -16,6 +16,7 @@ from agents.analysis import AnalysisAgent
 from agents.research import ResearchAgent
 from agents.code import CodeAgent
 from agents.documentation import DocumentationAgent
+from agents.shell import ShellAgent
 from agents.voice import VoiceAgent
 from agents.vision import VisionAgent
 from agents.base import AgentMessage
@@ -36,6 +37,7 @@ def get_supervisor() -> SupervisorAgent:
         _supervisor.register_agent(ResearchAgent())
         _supervisor.register_agent(CodeAgent())
         _supervisor.register_agent(DocumentationAgent())
+        _supervisor.register_agent(ShellAgent())
         _supervisor.register_agent(VoiceAgent())
         _supervisor.register_agent(VisionAgent())
         try:

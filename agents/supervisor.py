@@ -73,12 +73,25 @@ class SupervisorAgent(BaseAgent):
         """Route incoming request to appropriate agent(s)."""
         content = message.content.lower()
 
+        # Check for explicit agent routing
         target_agent = self._resolve_target(content)
         if target_agent:
             agent = self._agents.get(target_agent)
             if agent:
                 logger.info(f"Supervisor routing to: {target_agent}")
                 return await agent.handle(message)
+
+        # Route shell commands to ShellAgent
+        if message.content.startswith("!") or content.startswith("launch ") or content.startswith("open "):
+            return await self._route_to("Shell", message)
+        
+        # Route event chaining to ShellAgent
+        if content.startswith("chain "):
+            return await self._route_to("Shell", message)
+        
+        # Route command analysis to ShellAgent
+        if content.startswith("analyze ") or content.startswith("analyse "):
+            return await self._route_to("Shell", message)
 
         llm_result = await self._llm_generate(
             prompt=(

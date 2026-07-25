@@ -2,10 +2,11 @@
 Analysis Agent
 
 Analyzes collected information and produces summaries.
+Uses pentest model for specialized security analysis when available.
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from agents.base import BaseAgent, AgentRole, AgentMessage
 
@@ -21,9 +22,23 @@ class AnalysisAgent(BaseAgent):
             permissions=["read", "analyze"],
             tools=["text_analysis"],
         )
+        self._pentest_model = None
+
+    def _get_pentest_model(self):
+        """Get pentest model name from config if available."""
+        if self._pentest_model is None:
+            try:
+                from core.config import settings
+                self._pentest_model = settings.pentest_model
+            except Exception:
+                self._pentest_model = False  # Mark as not available
+        return self._pentest_model if self._pentest_model else None
 
     async def process(self, message: AgentMessage) -> AgentMessage:
         content = message.content
+        
+        # Use pentest model for security analysis if available
+        pentest_model = self._get_pentest_model()
 
         llm_analysis = await self._llm_generate(
             prompt=(
@@ -38,6 +53,7 @@ class AnalysisAgent(BaseAgent):
             ),
             max_tokens=1024,
             temperature=0.3,
+            model=pentest_model,
         )
 
         if llm_analysis:
@@ -46,7 +62,7 @@ class AnalysisAgent(BaseAgent):
                 receiver=message.sender,
                 content=llm_analysis,
                 message_type="analysis",
-                metadata={"analysis_type": "llm", "input_length": len(content), "source": "llm"},
+                metadata={"analysis_type": "llm", "input_length": len(content), "source": "llm", "model": pentest_model or "default"},
             )
 
         analysis = self._analyze(content)

@@ -2,6 +2,7 @@
 Research Agent
 
 Searches local vulnerability knowledge, CVE data, and security resources.
+Uses pentest model for specialized security research when available.
 """
 
 import logging
@@ -22,9 +23,20 @@ class ResearchAgent(BaseAgent):
             tools=["vector_search", "cve_lookup", "security_db"],
         )
         self._engine = knowledge_engine
+        self._pentest_model = None
 
     def set_engine(self, engine):
         self._engine = engine
+
+    def _get_pentest_model(self):
+        """Get pentest model name from config if available."""
+        if self._pentest_model is None:
+            try:
+                from core.config import settings
+                self._pentest_model = settings.pentest_model
+            except Exception:
+                self._pentest_model = False  # Mark as not available
+        return self._pentest_model if self._pentest_model else None
 
     async def process(self, message: AgentMessage) -> AgentMessage:
         query = message.content
@@ -37,6 +49,10 @@ class ResearchAgent(BaseAgent):
                 f"[{r.get('source', 'unknown')}] {r.get('text', '')[:500]}"
                 for r in results[:5]
             )
+            
+            # Use pentest model for security research if available
+            pentest_model = self._get_pentest_model()
+            
             llm_research = await self._llm_generate(
                 prompt=(
                     f"Based on the following knowledge base results, provide a comprehensive "
@@ -51,6 +67,7 @@ class ResearchAgent(BaseAgent):
                 ),
                 max_tokens=1024,
                 temperature=0.3,
+                model=pentest_model,
             )
             if llm_research:
                 return AgentMessage(
@@ -58,7 +75,7 @@ class ResearchAgent(BaseAgent):
                     receiver=message.sender,
                     content=llm_research,
                     message_type="research",
-                    metadata={"query": query, "source": "llm", "results_count": len(results)},
+                    metadata={"query": query, "source": "llm", "results_count": len(results), "model": pentest_model or "default"},
                 )
 
         research = await self._research(query)

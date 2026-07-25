@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     # Ollama
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:3b"
+    pentest_model: str = "hf.co/fawazo/qwen2.5-coder-3b-pentest-gguf:Q4_K_M"
 
     # LlamaCpp (legacy fallback)
     llama_cpp_host: str = "llama-cpp"

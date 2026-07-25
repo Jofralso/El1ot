@@ -9,6 +9,7 @@ Supervisor-based multi-agent architecture:
 - Research Agent
 - Code Agent
 - Documentation Agent
+- Shell Agent
 - Voice Agent
 - Vision Agent
 
@@ -23,6 +24,7 @@ from agents.analysis import AnalysisAgent
 from agents.research import ResearchAgent
 from agents.code import CodeAgent
 from agents.documentation import DocumentationAgent
+from agents.shell import ShellAgent
 from agents.voice import VoiceAgent
 from agents.vision import VisionAgent
 
@@ -37,6 +39,7 @@ __all__ = [
     "ResearchAgent",
     "CodeAgent",
     "DocumentationAgent",
+    "ShellAgent",
     "VoiceAgent",
     "VisionAgent",
 ]
