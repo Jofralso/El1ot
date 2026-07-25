@@ -1,0 +1,19 @@
+users:
+  owner:
+    name: "Owner"
+    role: "owner"
+    permissions:
+      - admin
+      - read
+      - write
+      - execute
+      - network
+      - voice
+      - vision
+      - plan
+      - analyze
+      - research
+      - code
+      - document
+      - knowledge_search
+    active: true

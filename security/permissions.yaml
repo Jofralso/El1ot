@@ -1,0 +1,20 @@
+roles:
+  owner:
+    - admin
+    - read
+    - write
+    - execute
+    - network
+    - voice
+    - vision
+    - plan
+    - analyze
+    - research
+    - code
+    - document
+    - knowledge_search
+  approved:
+    - read
+    - voice
+    - knowledge_search
+  unknown: []

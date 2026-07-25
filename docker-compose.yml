@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # Core ELIOT service (AI, orchestration, API)
+  core:
+    build:
+      context: .
+      dockerfile: core/Dockerfile
+    container_name: eliot-core
+    ports:
+      - "8000:8000"
+    environment:
+      - ELIOT_ENV=${ELIOT_ENV:-development}
+      - ELIOT_LOG_LEVEL=${ELIOT_LOG_LEVEL:-INFO}
+      - HARDWARE_TARGET=${HARDWARE_TARGET:-dev-machine}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CHROMADB_HOST=chromadb
+      - CHROMADB_PORT=8000
+      - MQTT_HOST=mqtt
+      - MQTT_PORT=1883
+    volumes:
+      - ./core:/app/core
+      - ./agents:/app/agents
+      - ./knowledge:/app/knowledge
+      - ./tools:/app/tools
+      - ./voice:/app/voice
+      - ./vision:/app/vision
+      - ./avatar:/app/avatar
+      - ./ui:/app/ui
+      - ./hardware:/app/hardware
+      - ./security:/app/security
+      - ./config:/app/config
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - eliot-models:/app/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - eliot-network
+    depends_on:
+      - redis
+      - chromadb
+
+  # Message broker (for agent communication, caching)
+  redis:
+    image: redis:7-alpine
+    container_name: eliot-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - eliot-network
+
+  # Vector database for knowledge engine
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: eliot-chromadb
+    ports:
+      - "8001:8000"
+    volumes:
+      - chromadb-data:/chroma/chroma
+    environment:
+      - ANONYMIZED_TELEMETRY=False
+    restart: unless-stopped
+    networks:
+      - eliot-network
+
+  # MQTT broker (Raspberry Pi communication)
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: eliot-mqtt
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mqtt-data:/mosquitto/data
+      - mqtt-log:/mosquitto/log
+    restart: unless-stopped
+    networks:
+      - eliot-network
+
+  # Monitoring (Prometheus + Grafana)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: eliot-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+    restart: unless-stopped
+    networks:
+      - eliot-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: eliot-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=eliot
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    networks:
+      - eliot-network
+
+volumes:
+  redis-data:
+  chromadb-data:
+  prometheus-data:
+  grafana-data:
+  mqtt-data:
+  mqtt-log:
+  eliot-models:
+
+networks:
+  eliot-network:
+    driver: bridge
