@@ -85,6 +85,14 @@ async def agent_chat(request: ChatRequest):
     """
     supervisor = get_supervisor()
 
+    try:
+        from avatar.engine import get_avatar_engine, AvatarState
+        avatar = get_avatar_engine()
+        avatar.set_state(AvatarState.THINKING)
+        avatar.set_text_display(request.message[:100])
+    except Exception:
+        avatar = None
+
     message = AgentMessage(
         sender="user",
         receiver=request.agent or "supervisor",
@@ -95,10 +103,15 @@ async def agent_chat(request: ChatRequest):
     if request.agent:
         agent = supervisor.get_agent(request.agent)
         if not agent:
+            if avatar: avatar.set_state(AvatarState.IDLE)
             raise HTTPException(status_code=404, detail=f"Agent '{request.agent}' not found")
         response = await agent.handle(message)
     else:
         response = await supervisor.handle(message)
+
+    if avatar:
+        avatar.set_state(AvatarState.REPORTING)
+        avatar.set_text_display(response.content[:200])
 
     return ChatResponse(
         sender=response.sender,

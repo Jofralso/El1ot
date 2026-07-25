@@ -119,6 +119,17 @@ app.include_router(router_tools.router, tags=["tools"])
 app.include_router(ui_router, tags=["ui"])
 
 
+from fastapi import WebSocket
+
+@app.websocket("/avatar/ws")
+async def avatar_ws(websocket: WebSocket):
+    """WebSocket endpoint for real-time avatar state synchronization."""
+    from avatar.engine import get_avatar_engine
+    engine = get_avatar_engine()
+    await websocket.accept()
+    await engine.ws_handler(websocket)
+
+
 @app.get("/metrics")
 async def metrics_endpoint():
     """Prometheus metrics endpoint"""
