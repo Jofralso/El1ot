@@ -212,6 +212,7 @@ class AvatarEngine:
         self._animation = AnimationTrigger.NONE
         self._connected_clients: Set = set()
         self._broadcast_queue: asyncio.Queue = asyncio.Queue()
+        self._boot_complete = False
 
     # ── State Management ─────────────────────────────────────
 
@@ -247,6 +248,14 @@ class AvatarEngine:
         self._boot_progress = min(1.0, progress)
         if progress >= 1.0:
             self.set_state(AvatarState.IDLE)
+
+    def complete_boot(self):
+        """Transition from BOOTING to IDLE state."""
+        if self._state == AvatarState.BOOTING or not self._boot_complete:
+            self._boot_complete = True
+            self._boot_progress = 1.0
+            self.set_state(AvatarState.IDLE)
+            logger.info("Avatar boot completed, transitioning to IDLE")
 
     def on_thinking(self):
         self.set_state(AvatarState.THINKING)

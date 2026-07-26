@@ -178,113 +178,249 @@ body::after {
 .avatar-container {
   display:flex; flex-direction:column; align-items:center;
   padding:20px 0;
+  position:relative;
 }
 .avatar-face {
-  width:200px; height:200px;
+  width:220px; height:220px;
   position:relative;
   border-radius:50%;
-  background: radial-gradient(circle, #0a0a14 0%, #050508 70%);
+  background: radial-gradient(circle at 50% 40%, #0f0f1a 0%, #08080f 50%, #030306 100%);
   border:2px solid var(--border);
-  box-shadow: 0 0 30px rgba(0,255,65,0.1), inset 0 0 30px rgba(0,255,65,0.05);
+  box-shadow: 
+    0 0 30px rgba(0,255,65,0.1), 
+    inset 0 0 40px rgba(0,255,65,0.03),
+    inset 0 -20px 40px rgba(0,0,0,0.5);
   transition: border-color 0.5s, box-shadow 0.5s;
+  overflow:hidden;
+}
+.avatar-face::before {
+  content:''; position:absolute; inset:0; border-radius:50%;
+  background: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.03) 0%, transparent 50%);
+  pointer-events:none;
 }
 .avatar-face.state-thinking {
   border-color: var(--cyan);
-  box-shadow: 0 0 40px rgba(0,229,255,0.2), inset 0 0 30px rgba(0,229,255,0.05);
+  box-shadow: 
+    0 0 50px rgba(0,229,255,0.25), 
+    inset 0 0 40px rgba(0,229,255,0.05),
+    inset 0 -20px 40px rgba(0,0,0,0.5);
 }
 .avatar-face.state-alert {
   border-color: var(--red);
-  box-shadow: 0 0 40px rgba(255,0,64,0.3), inset 0 0 30px rgba(255,0,64,0.05);
-  animation: alert-pulse 0.5s infinite;
+  box-shadow: 
+    0 0 60px rgba(255,0,64,0.35), 
+    inset 0 0 40px rgba(255,0,64,0.08),
+    inset 0 -20px 40px rgba(0,0,0,0.5);
+  animation: alert-pulse 0.8s infinite;
 }
 @keyframes alert-pulse {
-  0%,100% { box-shadow: 0 0 40px rgba(255,0,64,0.3); }
-  50% { box-shadow: 0 0 60px rgba(255,0,64,0.5); }
+  0%,100% { box-shadow: 0 0 60px rgba(255,0,64,0.35), inset 0 0 40px rgba(255,0,64,0.08); }
+  50% { box-shadow: 0 0 80px rgba(255,0,64,0.5), inset 0 0 50px rgba(255,0,64,0.12); }
 }
 .avatar-face.state-speaking {
   border-color: var(--green);
-  box-shadow: 0 0 50px var(--green-glow), inset 0 0 30px rgba(0,255,65,0.08);
+  box-shadow: 
+    0 0 60px var(--green-glow), 
+    inset 0 0 40px rgba(0,255,65,0.06),
+    inset 0 -20px 40px rgba(0,0,0,0.5);
 }
+
+/* ── Face structure ── */
+.avatar-brow {
+  position:absolute; top:28%; left:50%; transform:translateX(-50%);
+  display:flex; gap:50px;
+  z-index:2;
+}
+.avatar-brow-line {
+  width:24px; height:2px;
+  background: var(--green);
+  border-radius:1px;
+  opacity:0.4;
+  transition: transform 0.3s, opacity 0.3s;
+}
+.avatar-face.state-thinking .avatar-brow-line { transform:translateY(-2px); opacity:0.6; }
+.avatar-face.state-alert .avatar-brow-line { transform:translateY(2px) rotate(-5deg); opacity:0.8; }
 
 /* ── Eyes ── */
 .avatar-eyes {
-  position:absolute; top:35%; left:50%; transform:translate(-50%,-50%);
-  display:flex; gap:30px;
+  position:absolute; top:38%; left:50%; transform:translate(-50%,-50%);
+  display:flex; gap:36px;
+  z-index:3;
 }
 .eye {
-  width:28px; height:28px;
+  width:32px; height:32px;
   border-radius:50%;
-  background: radial-gradient(circle, var(--green) 30%, var(--green-dim) 60%, transparent 70%);
-  box-shadow: 0 0 12px var(--green-glow), 0 0 24px var(--green-glow);
+  background: radial-gradient(circle, #000 0%, #000 40%, rgba(0,255,65,0.1) 70%, transparent 100%);
+  border: 1.5px solid rgba(0,255,65,0.4);
   position:relative;
-  animation: blink 4s infinite;
+  overflow:hidden;
+}
+.eye::before {
+  content:''; position:absolute; inset:0; border-radius:50%;
+  background: radial-gradient(circle, transparent 30%, rgba(0,255,65,0.05) 100%);
+  animation: eye-glow 3s ease-in-out infinite;
+}
+@keyframes eye-glow {
+  0%,100% { opacity:0.5; } 50% { opacity:1; }
+}
+.eye .iris {
+  width:18px; height:18px;
+  border-radius:50%;
+  background: radial-gradient(circle, var(--green) 0%, var(--green-dim) 50%, rgba(0,200,50,0.6) 100%);
+  position:absolute; top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  box-shadow: 0 0 15px var(--green-glow), 0 0 30px rgba(0,255,65,0.2);
+  transition: transform 0.3s ease;
+  animation: iris-pulse 4s ease-in-out infinite;
+}
+@keyframes iris-pulse {
+  0%,100% { box-shadow: 0 0 15px var(--green-glow), 0 0 30px rgba(0,255,65,0.2); }
+  50% { box-shadow: 0 0 20px var(--green-glow), 0 0 40px rgba(0,255,65,0.3); }
 }
 .eye .pupil {
-  width:10px; height:10px;
+  width:8px; height:8px;
   border-radius:50%;
-  background:var(--bg);
+  background:#000;
   position:absolute; top:50%; left:50%;
   transform:translate(-50%,-50%);
   transition: transform 0.3s ease;
 }
+.eye .pupil::after {
+  content:''; position:absolute; top:1px; left:1px;
+  width:3px; height:3px; border-radius:50%;
+  background:rgba(255,255,255,0.7);
+}
 @keyframes blink {
   0%,42%,46%,100% { transform:scaleY(1); }
-  44% { transform:scaleY(0.1); }
+  44% { transform:scaleY(0.05); }
 }
+.eye.look-left .iris { transform:translate(-70%,-50%); }
 .eye.look-left .pupil { transform:translate(-80%,-50%); }
+.eye.look-right .iris { transform:translate(0%,-50%); }
 .eye.look-right .pupil { transform:translate(0%,-50%); }
+.eye.look-up .iris { transform:translate(-50%,-70%); }
 .eye.look-up .pupil { transform:translate(-50%,-80%); }
+.eye.look-down .iris { transform:translate(-50%,0%); }
 .eye.look-down .pupil { transform:translate(-50%,0%); }
+
+/* ── Nose ── */
+.avatar-nose {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:2px; height:12px;
+  background: linear-gradient(180deg, transparent, rgba(0,255,65,0.15), transparent);
+  border-radius:1px;
+}
 
 /* ── Mouth ── */
 .avatar-mouth {
-  position:absolute; bottom:28%; left:50%; transform:translateX(-50%);
-  width:40px; height:4px;
-  background:var(--green);
+  position:absolute; bottom:26%; left:50%; transform:translateX(-50%);
+  width:44px; height:3px;
+  background: linear-gradient(90deg, transparent 0%, var(--green) 20%, var(--green) 80%, transparent 100%);
   border-radius:2px;
-  box-shadow: 0 0 8px var(--green-glow);
+  box-shadow: 0 0 10px var(--green-glow);
   transition: all 0.15s ease;
+  z-index:3;
 }
 .avatar-mouth.speaking {
-  height:16px; border-radius:8px;
-  animation: talk 0.15s infinite alternate;
+  height:18px; border-radius:10px;
+  animation: talk 0.12s infinite alternate;
+  background: var(--green);
 }
 @keyframes talk {
-  from { height:4px; } to { height:18px; }
+  0% { height:4px; border-radius:2px; }
+  25% { height:12px; border-radius:6px; }
+  50% { height:18px; border-radius:10px; }
+  75% { height:8px; border-radius:4px; }
+  100% { height:14px; border-radius:8px; }
 }
 .avatar-mouth.smile {
-  width:30px; height:15px;
-  border-radius: 0 0 20px 20px;
+  width:36px; height:16px;
+  border-radius: 0 0 18px 18px;
   border-top:none;
+  background: var(--green);
 }
 .avatar-mouth.frown {
-  width:30px; height:10px;
-  border-radius: 20px 20px 0 0;
+  width:36px; height:12px;
+  border-radius: 18px 18px 0 0;
   border-bottom:none;
+  background: var(--green);
 }
 
-/* ── Avatar ring ── */
+/* ── Avatar rings ── */
 .avatar-ring {
-  position:absolute; inset:-10px;
+  position:absolute; inset:-12px;
   border-radius:50%;
-  border:1px solid rgba(0,255,65,0.15);
-  animation: ring-rotate 20s linear infinite;
+  border:1px solid rgba(0,255,65,0.12);
+  animation: ring-rotate 25s linear infinite;
 }
 .avatar-ring::before {
   content:''; position:absolute; top:-2px; left:50%; width:4px; height:4px;
   background:var(--green); border-radius:50%;
-  box-shadow: 0 0 8px var(--green);
+  box-shadow: 0 0 10px var(--green);
 }
-@keyframes ring-rotate { from { transform:rotate(0); } to { transform:rotate(360deg); } }
+.avatar-ring-outer {
+  position:absolute; inset:-20px;
+  border-radius:50%;
+  border:1px dashed rgba(0,255,65,0.06);
+  animation: ring-rotate 40s linear infinite reverse;
+}
+.avatar-ring-outer::before {
+  content:''; position:absolute; bottom:-2px; right:20%; width:3px; height:3px;
+  background:var(--cyan); border-radius:50%;
+  box-shadow: 0 0 8px var(--cyan);
+}
+@keyframes ring-rotate { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+
+/* ── Scan line ── */
+.avatar-scanline {
+  position:absolute; left:10%; right:10%; height:1px;
+  background: linear-gradient(90deg, transparent, rgba(0,255,65,0.3), transparent);
+  animation: scanline 4s ease-in-out infinite;
+  pointer-events:none;
+  z-index:4;
+}
+@keyframes scanline {
+  0% { top:20%; opacity:0; }
+  10% { opacity:1; }
+  90% { opacity:1; }
+  100% { top:80%; opacity:0; }
+}
+
+/* ── Data particles ── */
+.avatar-particles {
+  position:absolute; inset:0; border-radius:50%; overflow:hidden;
+  pointer-events:none;
+  z-index:1;
+}
+.avatar-particle {
+  position:absolute;
+  width:2px; height:2px;
+  background:var(--green);
+  border-radius:50%;
+  opacity:0;
+  animation: particle-float 3s ease-in-out infinite;
+}
+.avatar-particle:nth-child(1) { left:20%; animation-delay:0s; }
+.avatar-particle:nth-child(2) { left:40%; animation-delay:0.5s; }
+.avatar-particle:nth-child(3) { left:60%; animation-delay:1s; }
+.avatar-particle:nth-child(4) { left:80%; animation-delay:1.5s; }
+.avatar-particle:nth-child(5) { left:30%; animation-delay:2s; }
+.avatar-particle:nth-child(6) { left:70%; animation-delay:2.5s; }
+@keyframes particle-float {
+  0% { bottom:10%; opacity:0; }
+  20% { opacity:0.8; }
+  80% { opacity:0.8; }
+  100% { bottom:90%; opacity:0; }
+}
 
 .avatar-state-label {
-  margin-top:16px;
+  margin-top:20px;
   font-family:'Orbitron', monospace;
-  font-size:12px;
+  font-size:13px;
   color:var(--green);
   text-transform:uppercase;
-  letter-spacing:3px;
-  text-shadow:0 0 10px var(--green-glow);
+  letter-spacing:4px;
+  text-shadow:0 0 12px var(--green-glow);
 }
 .avatar-emotion-label {
   margin-top:4px;
@@ -484,10 +620,25 @@ body::after {
     <div class="avatar-container">
       <div class="avatar-face" id="avatar-face">
         <div class="avatar-ring"></div>
-        <div class="avatar-eyes">
-          <div class="eye" id="eye-left"><div class="pupil"></div></div>
-          <div class="eye" id="eye-right"><div class="pupil"></div></div>
+        <div class="avatar-ring-outer"></div>
+        <div class="avatar-scanline"></div>
+        <div class="avatar-particles">
+          <div class="avatar-particle"></div>
+          <div class="avatar-particle"></div>
+          <div class="avatar-particle"></div>
+          <div class="avatar-particle"></div>
+          <div class="avatar-particle"></div>
+          <div class="avatar-particle"></div>
         </div>
+        <div class="avatar-brow">
+          <div class="avatar-brow-line"></div>
+          <div class="avatar-brow-line"></div>
+        </div>
+        <div class="avatar-eyes">
+          <div class="eye" id="eye-left"><div class="iris"></div><div class="pupil"></div></div>
+          <div class="eye" id="eye-right"><div class="iris"></div><div class="pupil"></div></div>
+        </div>
+        <div class="avatar-nose"></div>
         <div class="avatar-mouth" id="avatar-mouth"></div>
       </div>
       <div class="avatar-state-label" id="avatar-state-label">BOOTING</div>
@@ -620,13 +771,17 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 
 // ── Avatar State ──
 let avatarState = 'booting';
-let avatarEmotion = 'curious';
+let avatarEmotion = 'neutral';
 let ws = null;
+let idleEyeTimer = null;
 
 function connectAvatarWS() {
   const wsUrl = 'ws://' + location.host + '/avatar/ws';
   ws = new WebSocket(wsUrl);
-  ws.onopen = () => console.log('Avatar WS connected');
+  ws.onopen = () => {
+    console.log('Avatar WS connected');
+    startIdleAnimations();
+  };
   ws.onmessage = (e) => {
     try {
       const data = JSON.parse(e.data);
@@ -635,6 +790,49 @@ function connectAvatarWS() {
   };
   ws.onclose = () => setTimeout(connectAvatarWS, 3000);
   ws.onerror = () => ws.close();
+}
+
+function startIdleAnimations() {
+  if (idleEyeTimer) clearInterval(idleEyeTimer);
+  idleEyeTimer = setInterval(() => {
+    if (avatarState !== 'idle') return;
+    const eyes = document.querySelectorAll('.eye');
+    const dirs = ['look-left', 'look-right', 'look-up', 'look-down', ''];
+    const dir = dirs[Math.floor(Math.random() * dirs.length)];
+    eyes.forEach(e => {
+      e.className = 'eye';
+      if (dir) e.classList.add(dir);
+    });
+    setTimeout(() => eyes.forEach(e => e.className = 'eye'), 2000 + Math.random() * 2000);
+  }, 4000 + Math.random() * 3000);
+}
+
+function updateAvatar(data) {
+  avatarState = data.state || 'idle';
+  avatarEmotion = data.emotion || 'neutral';
+
+  const face = document.getElementById('avatar-face');
+  const mouth = document.getElementById('avatar-mouth');
+  const stateLabel = document.getElementById('avatar-state-label');
+  const emotionLabel = document.getElementById('avatar-emotion-label');
+
+  face.className = 'avatar-face';
+  if (['thinking','analyzing'].includes(avatarState)) face.classList.add('state-thinking');
+  if (avatarState === 'alert') face.classList.add('state-alert');
+  if (['speaking','reporting'].includes(avatarState)) face.classList.add('state-speaking');
+
+  mouth.className = 'avatar-mouth';
+  if (['speaking','reporting'].includes(avatarState)) mouth.classList.add('speaking');
+  else if (avatarEmotion === 'satisfied') mouth.classList.add('smile');
+  else if (avatarEmotion === 'concerned') mouth.classList.add('frown');
+
+  stateLabel.textContent = avatarState.toUpperCase();
+  emotionLabel.textContent = data.text_display || avatarEmotion;
+
+  const statusText = document.getElementById('status-text');
+  if (statusText) statusText.textContent = avatarState.toUpperCase();
+  
+  if (avatarState === 'idle') startIdleAnimations();
 }
 
 function updateAvatar(data) {

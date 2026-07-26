@@ -90,6 +90,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Inference engine init skipped: {e}")
 
+    # Transition avatar from BOOTING to IDLE after service is ready
+    try:
+        from avatar.engine import get_avatar_engine
+        avatar = get_avatar_engine()
+        avatar.complete_boot()
+        logger.info("Avatar engine boot completed")
+    except Exception as e:
+        logger.warning(f"Avatar boot completion skipped: {e}")
+
     logger.info("ELIOT CORE SERVICE READY")
     logger.info("=" * 60)
 
