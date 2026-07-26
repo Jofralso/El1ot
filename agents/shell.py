@@ -119,8 +119,8 @@ class ShellAgent(BaseAgent):
             cmd = content.split(None, 1)[1].strip()
             return await self._analyze_command(cmd, message)
         
-        # Default: try to execute as command
-        return await self._execute_command(content, message)
+        # Natural language: use LLM to convert to shell command
+        return await self._nl_to_command(message.content, message)
     
     async def _execute_command(self, command: str, message: AgentMessage) -> AgentMessage:
         """Execute a shell command with safety checks."""
@@ -160,9 +160,11 @@ class ShellAgent(BaseAgent):
                 env={**os.environ, "TERM": "dumb"},  # Simplified terminal
             )
             
+            # Longer timeout for network commands
+            timeout = 60.0 if any(kw in command.lower() for kw in ['nmap', 'arp', 'ping', 'scan', 'curl', 'wget']) else 30.0
             stdout, stderr = await asyncio.wait_for(
                 process.communicate(),
-                timeout=30.0  # 30 second timeout
+                timeout=timeout
             )
             
             stdout_text = stdout.decode('utf-8', errors='replace')
@@ -322,6 +324,65 @@ class ShellAgent(BaseAgent):
             content=response_content,
             message_type="analysis",
             metadata={"command": command, "safety": safety.value},
+        )
+    
+    async def _nl_to_command(self, text: str, message: AgentMessage) -> AgentMessage:
+        """Convert natural language request to a shell command using LLM."""
+        llm_cmd = await self._llm_generate(
+            prompt=(
+                f"Convert this natural language request into a single Linux shell command.\n"
+                f"Request: {text}\n\n"
+                f"Rules:\n"
+                f"- Reply with ONLY the shell command. No explanation, no markdown, no backticks.\n"
+                f"- Use simple, fast commands. For network scanning use: ip -4 addr show | grep inet, arp -a, or nmap -sn 192.168.0.0/24\n"
+                f"- Do NOT use sudo unless absolutely necessary.\n"
+                f"- Do NOT use -O flag with nmap (it's slow). Use -sn for ping scan instead.\n"
+                f"- Keep the command simple and fast (under 15 seconds to run).\n"
+                f"- If the request is complex, pick the most important single command."
+            ),
+            system_prompt=(
+                "You are a Linux shell expert. Convert natural language to shell commands. "
+                "Reply with ONLY the raw command. No explanations. No code blocks. No backticks."
+            ),
+            max_tokens=128,
+            temperature=0.1,
+        )
+        
+        if llm_cmd:
+            command = llm_cmd.strip().strip('`').strip()
+            # Remove markdown code block if present
+            if command.startswith('```'):
+                command = command.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
+            
+            safety = self._check_command_safety(command)
+            
+            if safety == CommandSafety.BLOCKED:
+                return AgentMessage(
+                    sender=self.name,
+                    receiver=message.sender,
+                    content=f"I understood your request, but the generated command is blocked for safety:\n`{command}`\n\nPlease try rephrasing or use a more specific request.",
+                    message_type="text",
+                    metadata={"generated_command": command, "blocked": True},
+                )
+            
+            if safety == CommandSafety.DANGEROUS:
+                self._pending_confirmations[command] = message.sender
+                return AgentMessage(
+                    sender=self.name,
+                    receiver=message.sender,
+                    content=f"I'll run this command (requires confirmation):\n\n`{command}`\n\nReply 'confirm' to proceed or 'cancel' to abort.",
+                    message_type="warning",
+                    metadata={"requires_confirmation": True, "command": command},
+                )
+            
+            # Execute the generated command
+            return await self._execute_command(command, message)
+        
+        return AgentMessage(
+            sender=self.name,
+            receiver=message.sender,
+            content="I couldn't convert that to a shell command. Try using `!command` for direct execution.",
+            message_type="text",
         )
     
     def _check_command_safety(self, command: str) -> CommandSafety:

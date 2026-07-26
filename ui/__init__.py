@@ -835,32 +835,6 @@ function updateAvatar(data) {
   if (avatarState === 'idle') startIdleAnimations();
 }
 
-function updateAvatar(data) {
-  avatarState = data.state || 'idle';
-  avatarEmotion = data.emotion || 'neutral';
-
-  const face = document.getElementById('avatar-face');
-  const mouth = document.getElementById('avatar-mouth');
-  const stateLabel = document.getElementById('avatar-state-label');
-  const emotionLabel = document.getElementById('avatar-emotion-label');
-
-  face.className = 'avatar-face';
-  if (['thinking','analyzing'].includes(avatarState)) face.classList.add('state-thinking');
-  if (avatarState === 'alert') face.classList.add('state-alert');
-  if (['speaking','reporting'].includes(avatarState)) face.classList.add('state-speaking');
-
-  mouth.className = 'avatar-mouth';
-  if (['speaking','reporting'].includes(avatarState)) mouth.classList.add('speaking');
-  else if (avatarEmotion === 'satisfied') mouth.classList.add('smile');
-  else if (avatarEmotion === 'concerned') mouth.classList.add('frown');
-
-  stateLabel.textContent = avatarState.toUpperCase();
-  emotionLabel.textContent = data.text_display || avatarEmotion;
-
-  const statusText = document.getElementById('status-text');
-  if (statusText) statusText.textContent = avatarState.toUpperCase();
-}
-
 // ── Chat ──
 let chatHistory = [];
 
@@ -1011,10 +985,12 @@ async function loadDashboard() {
   try {
     const r = await fetch('/system/info');
     const d = await r.json();
+    const totalMem = (d.hardware.memory_gb || 0).toFixed(1);
+    const usedMem = ((d.hardware.memory_gb || 0) - (d.metrics.memory_available_gb || 0)).toFixed(1);
     document.getElementById('dash-hardware').innerHTML = `
       <div class="metric-row"><span class="metric-label">Target</span><span class="metric-value">${d.hardware.target}</span></div>
       <div class="metric-row"><span class="metric-label">CPU</span><span class="metric-value">${d.metrics.cpu_percent}%</span></div>
-      <div class="metric-row"><span class="metric-label">Memory</span><span class="metric-value">${d.metrics.memory_percent}% (${d.metrics.memory_used_gb}GB / ${d.metrics.memory_total_gb}GB)</span></div>
+      <div class="metric-row"><span class="metric-label">Memory</span><span class="metric-value">${d.metrics.memory_percent}% (${usedMem}GB / ${totalMem}GB)</span></div>
       <div class="metric-row"><span class="metric-label">Disk</span><span class="metric-value">${d.metrics.disk_percent}%</span></div>
       <div class="metric-row"><span class="metric-label">CUDA</span><span class="metric-value">${d.hardware.cuda_available ? 'Available' : 'N/A'}</span></div>
     `;
