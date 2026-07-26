@@ -102,6 +102,9 @@ class SentientEngine:
     Discovers all networks, maps devices, builds topology.
     """
 
+    # WiFi interface priority: external adapter first, built-in as fallback
+    WIFI_INTERFACES = ["wlxc4e984dfb30f", "wlP1p1s0"]
+
     def __init__(self):
         self._devices: Dict[str, Device] = {}  # IP -> Device
         self._networks: Dict[str, Network] = {}  # CIDR -> Network
@@ -116,6 +119,7 @@ class SentientEngine:
         self._live_events: List[Dict[str, Any]] = []
         self._max_live_events = 200
         self._my_interfaces: Dict[str, str] = {}  # name -> IP
+        self._wifi_interface: str = ""  # detected at runtime
 
     @property
     def running(self) -> bool:
@@ -305,12 +309,39 @@ class SentientEngine:
                 return line.split(":", 1)[-1].strip() if ":" in line else line.strip()
         return ""
 
+    # ── WiFi Interface Detection ──────────────────────────────
+
+    async def _detect_wifi_interface(self) -> str:
+        """Detect best available WiFi interface. External adapter preferred."""
+        if self._wifi_interface:
+            return self._wifi_interface
+
+        for iface in self.WIFI_INTERFACES:
+            stdout, rc = await self._run(f"cat /sys/class/net/{iface}/type 2>/dev/null")
+            if rc == 0 and stdout.strip() == "1":  # Type 1 = wireless
+                self._wifi_interface = iface
+                logger.info(f"Using WiFi interface: {iface}")
+                return iface
+
+        # Fallback: find any wireless interface
+        stdout, _ = await self._run("iw dev 2>/dev/null | grep Interface | head -1 | awk '{print $2}'")
+        if stdout.strip():
+            self._wifi_interface = stdout.strip()
+            logger.info(f"Using detected WiFi interface: {self._wifi_interface}")
+            return self._wifi_interface
+
+        logger.warning("No WiFi interface found, using wlP1p1s0 as fallback")
+        self._wifi_interface = "wlP1p1s0"
+        return self._wifi_interface
+
     # ── WiFi Scanning ────────────────────────────────────────
 
     async def _scan_wifi(self) -> List[WiFiAP]:
         """Scan for WiFi access points using nmcli."""
+        iface = await self._detect_wifi_interface()
+
         stdout, rc = await self._run(
-            "nmcli -t -f BSSID,SSID,CHAN,FREQ,MODE,SIGNAL,RATE,SIGNAL-BAR device wifi list"
+            f"nmcli -t -f BSSID,SSID,CHAN,FREQ,MODE,SIGNAL,RATE,SIGNAL-BAR device wifi list"
         )
         if rc != 0:
             # Fallback to non-verbose
@@ -340,8 +371,8 @@ class SentientEngine:
                         aps.append(ap)
                         self._wifi_aps[bssid] = ap
 
-        # Also try iwlist for more detail
-        stdout2, _ = await self._run("echo jetson | sudo -S iwlist wlP1p1s0 scan 2>/dev/null")
+        # Also try iwlist for more detail on selected interface
+        stdout2, _ = await self._run(f"echo jetson | sudo -S iwlist {iface} scan 2>/dev/null")
         current_ap = None
         for line in stdout2.split("\n"):
             line = line.strip()

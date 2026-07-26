@@ -87,6 +87,9 @@ class StealthEngine:
     Always active by default — every scan goes through this engine.
     """
 
+    # WiFi interface priority: external adapter first, built-in as fallback
+    WIFI_INTERFACES = ["wlxc4e984dfb30f", "wlP1p1s0"]
+
     def __init__(self):
         self._profile = ScanProfile.NORMAL
         self._original_mac: Optional[str] = None
@@ -96,6 +99,7 @@ class StealthEngine:
         self._last_scan_time = 0.0
         self._jitter_base = 0.5
         self._active = True
+        self._wifi_interface: str = ""  # detected at runtime
 
     @property
     def active(self) -> bool:
@@ -148,8 +152,33 @@ class StealthEngine:
         except Exception as e:
             return "", str(e), -1
 
-    async def _get_mac(self, interface: str = "wlP1p1s0") -> Optional[str]:
+    async def _detect_wifi_interface(self) -> str:
+        """Detect best available WiFi interface. External adapter preferred."""
+        if self._wifi_interface:
+            return self._wifi_interface
+
+        for iface in self.WIFI_INTERFACES:
+            stdout, _, rc = await self._run_cmd(f"cat /sys/class/net/{iface}/type 2>/dev/null")
+            if rc == 0 and stdout.strip() == "1":  # Type 1 = wireless
+                self._wifi_interface = iface
+                logger.info(f"Stealth using WiFi interface: {iface}")
+                return iface
+
+        # Fallback: find any wireless interface
+        stdout, _, _ = await self._run_cmd("iw dev 2>/dev/null | grep Interface | head -1 | awk '{print $2}'")
+        if stdout.strip():
+            self._wifi_interface = stdout.strip()
+            logger.info(f"Stealth using detected WiFi interface: {self._wifi_interface}")
+            return self._wifi_interface
+
+        logger.warning("No WiFi interface found, using wlP1p1s0 as fallback")
+        self._wifi_interface = "wlP1p1s0"
+        return self._wifi_interface
+
+    async def _get_mac(self, interface: str = "") -> Optional[str]:
         """Get current MAC address of an interface."""
+        if not interface:
+            interface = await self._detect_wifi_interface()
         stdout, _, rc = await self._run_cmd(
             f"cat /sys/class/net/{interface}/address"
         )
@@ -157,7 +186,7 @@ class StealthEngine:
             return stdout.strip().lower()
         return None
 
-    async def randomize_mac(self, interface: str = "wlP1p1s0") -> bool:
+    async def randomize_mac(self, interface: str = "") -> bool:
         """Randomize MAC address. Returns True if successful."""
         if self._mac_randomized:
             logger.debug("MAC already randomized, skipping")
@@ -192,8 +221,10 @@ class StealthEngine:
         logger.info(f"MAC randomized: {self._original_mac} -> {random_mac}")
         return True
 
-    async def restore_mac(self, interface: str = "wlP1p1s0") -> bool:
+    async def restore_mac(self, interface: str = "") -> bool:
         """Restore original MAC address."""
+        if not interface:
+            interface = await self._detect_wifi_interface()
         return await self._restore_mac(interface)
 
     async def _restore_mac(self, interface: str) -> bool:

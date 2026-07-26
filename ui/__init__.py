@@ -987,11 +987,20 @@ async function loadSuggestions() {
   } catch(e) { el.innerHTML=''; }
 }
 
+let chatWaiting = false;
+
 async function sendChat() {
+  if(chatWaiting) return;
   const input = document.getElementById('chat-input');
+  const sendBtn = document.querySelector('.chat-input-wrap .btn-primary');
   const msg = input.value.trim();
   if(!msg) return;
   input.value = '';
+
+  chatWaiting = true;
+  input.disabled = true;
+  input.placeholder = 'Waiting for response...';
+  if(sendBtn) sendBtn.disabled = true;
 
   chatMessages.push({role:'user', content:msg, time:new Date().toLocaleTimeString('en-US',{hour12:false})});
   renderChatMessages();
@@ -1008,6 +1017,12 @@ async function sendChat() {
   } catch(e) {
     placeholder.content = 'Error: '+e.message;
   }
+
+  chatWaiting = false;
+  input.disabled = false;
+  input.placeholder = 'Ask ELIOT anything...';
+  if(sendBtn) sendBtn.disabled = false;
+  input.focus();
   renderChatMessages();
   loadSuggestions();
 }
