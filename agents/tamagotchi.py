@@ -118,6 +118,7 @@ class TamagotchiEngine:
     """
     Autonomous intelligence agent.
     Discovers, maps, prioritizes, and (with authorization) exploits.
+    Gamified with XP, levels, weighted rewards, and learning from mistakes.
     """
 
     # Commands that need authorization (machine access / data extraction)
@@ -127,7 +128,7 @@ class TamagotchiEngine:
         "sqlmap --dump", "sqlmap --os-shell", "sqlmap --os-pwn",
         "exploit", "payload", "reverse_tcp",
         "john --show", "hashcat",
-        "sshpass", "smbclient -L",  # enumeration is OK, but extraction needs auth
+        "sshpass", "smbclient -L",
         "mount", "chroot",
         "curl -d", "wget --post",
     ]
@@ -140,9 +141,65 @@ class TamagotchiEngine:
         "arp", "ip ", "ifconfig", "ss", "netstat",
         "hcitool", "bluetoothctl",
         "nmcli", "iwlist",
-        "searchsploit",  # read-only
+        "searchsploit",
         "cat ", "ls ", "grep ", "find ", "head ", "tail ",
     ]
+
+    # ── Gamification Constants ───────────────────────────────
+    XP_WEIGHTS = {
+        "scan_complete": 10,
+        "device_discovered": 15,
+        "service_detected": 20,
+        "vuln_found": 30,
+        "exploit_success": 50,
+        "crack_complete": 40,
+        "auth_granted": 5,
+        "knowledge_logged": 8,
+        "new_network_mapped": 25,
+        "wifi_ap_found": 12,
+        "bluetooth_found": 10,
+        "false_positive": -15,
+        "scan_timeout": -5,
+        "exploit_failed": -20,
+        "wrong_classification": -10,
+    }
+
+    LEVEL_XP = [
+        0, 100, 250, 500, 800, 1200, 1800, 2500, 3500, 5000,
+        7000, 10000, 14000, 19000, 25000, 32000, 40000, 50000,
+        62000, 75000, 90000, 110000, 135000, 165000, 200000,
+    ]
+
+    LEVEL_NAMES = [
+        "Script Kiddie", "Script Kiddie", "Script Kiddie",
+        "Novice Hacker", "Novice Hacker",
+        "Junior Pentester", "Junior Pentester",
+        "Pentester", "Pentester", "Pentester",
+        "Senior Pentester", "Senior Pentester",
+        "Security Analyst", "Security Analyst",
+        "Red Team Operator", "Red Team Operator",
+        "Exploit Developer", "Exploit Developer",
+        "Security Researcher", "Security Researcher",
+        "Bug Hunter", "Bug Hunter",
+        "Elite Hacker", "Elite Hacker", "Elite Hacker",
+    ]
+
+    ACHIEVEMENTS = {
+        "first_scan": {"name": "First Steps", "desc": "Complete your first scan", "xp": 50, "icon": "🔍"},
+        "first_device": {"name": "Network Explorer", "desc": "Discover your first device", "xp": 75, "icon": "📡"},
+        "first_vuln": {"name": "Bug Finder", "desc": "Find your first vulnerability", "xp": 100, "icon": "🐛"},
+        "first_exploit": {"name": "Exploit Artist", "desc": "Execute your first exploit", "xp": 200, "icon": "💥"},
+        "first_crack": {"name": "Password Hunter", "desc": "Complete your first crack session", "xp": 150, "icon": "🔐"},
+        "ten_devices": {"name": "Network Mapper", "desc": "Discover 10 devices", "xp": 300, "icon": "🗺️"},
+        "ten_vulns": {"name": "Vuln Collector", "desc": "Find 10 vulnerabilities", "xp": 400, "icon": "📋"},
+        "hundred_xp": {"name": "Rising Star", "desc": "Earn 100 XP total", "xp": 50, "icon": "⭐"},
+        "thousand_xp": {"name": "Dedicated Hacker", "desc": "Earn 1000 XP total", "xp": 100, "icon": "🌟"},
+        "level_5": {"name": "Getting Serious", "desc": "Reach level 5", "xp": 200, "icon": "📈"},
+        "level_10": {"name": "Pro Pentester", "desc": "Reach level 10", "xp": 500, "icon": "🏆"},
+        "night_owl": {"name": "Night Owl", "desc": "Run a scan between 2-5 AM", "xp": 75, "icon": "🦉"},
+        "full_network": {"name": "Network Dominator", "desc": "Map an entire /24 subnet", "xp": 600, "icon": "🌐"},
+        "stealth_master": {"name": "Ghost", "desc": "Complete 10 scans without detection", "xp": 300, "icon": "👻"},
+    }
 
     def __init__(self):
         self._state = TamaState.IDLE
@@ -163,6 +220,16 @@ class TamagotchiEngine:
             "notifications_created": 0,
             "authorizations_granted": 0,
         }
+        # ── Gamification State ──
+        self._xp: int = 0
+        self._level: int = 1
+        self._total_xp: int = 0
+        self._achievements: List[str] = []
+        self._event_log: List[Dict[str, Any]] = []
+        self._streaks: Dict[str, int] = {
+            "scans": 0, "devices": 0, "vulns": 0, "exploits": 0,
+        }
+        self._mistakes: List[Dict[str, Any]] = []
 
     @property
     def state(self) -> TamaState:
@@ -186,7 +253,202 @@ class TamagotchiEngine:
             ),
             "stats": self._stats,
             "ollama_paused": self._ollama_was_running,
+            # Gamification
+            "xp": self._xp,
+            "level": self._level,
+            "level_name": self._get_level_name(),
+            "total_xp": self._total_xp,
+            "xp_to_next": self._xp_to_next_level(),
+            "xp_progress": self._xp_progress(),
+            "achievements": self._achievements,
+            "achievements_total": len(self.ACHIEVEMENTS),
+            "streaks": self._streaks,
+            "mistakes_count": len(self._mistakes),
         }
+
+    # ── Gamification Methods ─────────────────────────────────
+
+    def award_xp(self, action: str, amount: int = 0, detail: str = "") -> int:
+        """Award XP for an action. Returns actual XP gained (may differ with multipliers)."""
+        base = amount or self.XP_WEIGHTS.get(action, 5)
+
+        # Streak bonus: +10% per streak level (max +50%)
+        streak_key = action.split("_")[0] if "_" in action else action
+        streak = self._streaks.get(streak_key, 0)
+        multiplier = 1.0 + min(streak * 0.1, 0.5)
+        final_xp = int(base * multiplier)
+
+        self._xp += final_xp
+        self._total_xp += final_xp
+
+        # Level up check
+        old_level = self._level
+        self._level = self._calculate_level()
+        leveled_up = self._level > old_level
+
+        # Log the event
+        self._event_log.append({
+            "type": "xp",
+            "action": action,
+            "xp": final_xp,
+            "base": base,
+            "multiplier": round(multiplier, 1),
+            "total": self._total_xp,
+            "level": self._level,
+            "detail": detail,
+            "timestamp": time.time(),
+        })
+
+        # Keep log manageable
+        if len(self._event_log) > 1000:
+            self._event_log = self._event_log[-1000:]
+
+        # Check achievements
+        self._check_achievements()
+
+        if leveled_up:
+            self._event_log.append({
+                "type": "level_up",
+                "level": self._level,
+                "name": self._get_level_name(),
+                "timestamp": time.time(),
+            })
+
+        logger.info(f"XP awarded: {final_xp} for {action} (total: {self._total_xp}, level: {self._level})")
+        return final_xp
+
+    def penalize(self, action: str, amount: int = 0, reason: str = ""):
+        """Penalize for mistakes (false positives, failures, etc)."""
+        base = amount or abs(self.XP_WEIGHTS.get(action, -5))
+        penalty = min(base, self._xp)  # Never go below 0
+        self._xp -= penalty
+
+        self._mistakes.append({
+            "action": action,
+            "penalty": penalty,
+            "reason": reason,
+            "timestamp": time.time(),
+        })
+
+        # Keep mistakes log manageable
+        if len(self._mistakes) > 200:
+            self._mistakes = self._mistakes[-200:]
+
+        self._event_log.append({
+            "type": "penalty",
+            "action": action,
+            "xp": -penalty,
+            "reason": reason,
+            "timestamp": time.time(),
+        })
+
+        logger.info(f"XP penalty: -{penalty} for {action} (reason: {reason})")
+        return penalty
+
+    def record_mistake(self, action: str, expected: str, actual: str):
+        """Record a classification/prediction mistake for learning."""
+        self._mistakes.append({
+            "action": action,
+            "expected": expected,
+            "actual": actual,
+            "timestamp": time.time(),
+            "learned": False,
+        })
+        self.penalize("wrong_classification", reason=f"Expected {expected}, got {actual}")
+
+    def get_learning_data(self) -> Dict[str, Any]:
+        """Get data about mistakes and learning progress."""
+        unlearned = [m for m in self._mistakes if not m.get("learned")]
+        return {
+            "total_mistakes": len(self._mistakes),
+            "unlearned": len(unlearned),
+            "recent_mistakes": self._mistakes[-10:],
+            "learning_rate": 1.0 - (len(unlearned) / max(len(self._mistakes), 1)),
+            "categories": self._mistake_categories(),
+        }
+
+    def _mistake_categories(self) -> Dict[str, int]:
+        """Count mistakes by category."""
+        cats = {}
+        for m in self._mistakes:
+            cat = m.get("action", "unknown")
+            cats[cat] = cats.get(cat, 0) + 1
+        return cats
+
+    def _calculate_level(self) -> int:
+        """Calculate level from total XP."""
+        level = 1
+        for i, threshold in enumerate(self.LEVEL_XP):
+            if self._total_xp >= threshold:
+                level = i + 1
+            else:
+                break
+        return min(level, len(self.LEVEL_XP))
+
+    def _get_level_name(self) -> str:
+        idx = min(self._level - 1, len(self.LEVEL_NAMES) - 1)
+        return self.LEVEL_NAMES[idx]
+
+    def _xp_to_next_level(self) -> int:
+        if self._level >= len(self.LEVEL_XP):
+            return 0
+        return self.LEVEL_XP[self._level] - self._total_xp
+
+    def _xp_progress(self) -> float:
+        if self._level >= len(self.LEVEL_XP):
+            return 1.0
+        current = self.LEVEL_XP[self._level - 1] if self._level > 1 else 0
+        nxt = self.LEVEL_XP[self._level]
+        return (self._total_xp - current) / max(nxt - current, 1)
+
+    def _check_achievements(self):
+        """Check and award achievements."""
+        new_achievements = []
+
+        def try_achieve(key):
+            if key not in self._achievements:
+                ach = self.ACHIEVEMENTS[key]
+                self._achievements.append(key)
+                new_achievements.append(ach)
+                self._event_log.append({
+                    "type": "achievement",
+                    "key": key,
+                    "name": ach["name"],
+                    "desc": ach["desc"],
+                    "icon": ach["icon"],
+                    "xp": ach["xp"],
+                    "timestamp": time.time(),
+                })
+
+        if self._stats["scans_run"] >= 1:
+            try_achieve("first_scan")
+        if self._stats["devices_found"] >= 1:
+            try_achieve("first_device")
+        if self._stats["vulns_found"] >= 1:
+            try_achieve("first_vuln")
+        if self._stats["exploits_executed"] >= 1:
+            try_achieve("first_exploit")
+        if self._stats["cracks_run"] >= 1:
+            try_achieve("first_crack")
+        if self._stats["devices_found"] >= 10:
+            try_achieve("ten_devices")
+        if self._stats["vulns_found"] >= 10:
+            try_achieve("ten_vulns")
+        if self._total_xp >= 100:
+            try_achieve("hundred_xp")
+        if self._total_xp >= 1000:
+            try_achieve("thousand_xp")
+        if self._level >= 5:
+            try_achieve("level_5")
+        if self._level >= 10:
+            try_achieve("level_10")
+
+        hour = time.localtime().tm_hour
+        if 2 <= hour <= 5 and self._stats["scans_run"] > 0:
+            try_achieve("night_owl")
+
+        for ach in new_achievements:
+            self.award_xp("achievement_unlocked", ach["xp"], ach["name"])
 
     # ── Authorization Logic ───────────────────────────────────
 
@@ -566,7 +828,19 @@ class TamagotchiEngine:
                 if sentient.running:
                     scan_result = await sentient.run_full_scan()
                     self._stats["scans_run"] += 1
+                    self._streaks["scans"] = self._streaks.get("scans", 0) + 1
+                    self.award_xp("scan_complete", detail=f"Scan #{self._stats['scans_run']}")
+
+                    old_devices = self._stats["devices_found"]
                     self._stats["devices_found"] = len(sentient.get_devices())
+                    new_devices = self._stats["devices_found"] - old_devices
+                    if new_devices > 0:
+                        self._streaks["devices"] = self._streaks.get("devices", 0) + new_devices
+                        self.award_xp("device_discovered", 15 * new_devices, f"+{new_devices} devices")
+                        # Check full network achievement
+                        if self._stats["devices_found"] >= 25:
+                            if "full_network" not in self._achievements:
+                                self.award_xp("new_network_mapped", 600, "Full /24 mapped")
 
                     # Learn from discoveries
                     for device_data in sentient.get_devices():
@@ -597,7 +871,6 @@ class TamagotchiEngine:
                 ]
                 if authorized:
                     self._state = TamaState.EXPLOITING
-                    # Would need shell_agent reference - handled via API
 
                 # Phase 4: Idle
                 self._state = TamaState.IDLE
@@ -636,6 +909,40 @@ class TamagotchiEngine:
             n for n in self._notifications
             if n.created_at > cutoff
         ]
+
+    # ── Event Log & Gamification Data ────────────────────────
+
+    def get_event_log(self, limit: int = 100, event_type: Optional[str] = None) -> List[Dict]:
+        """Get recent events (XP gains, achievements, penalties, level ups)."""
+        log = self._event_log
+        if event_type:
+            log = [e for e in log if e.get("type") == event_type]
+        return log[-limit:]
+
+    def get_mistakes(self, limit: int = 50) -> List[Dict]:
+        """Get recent mistakes for learning review."""
+        return self._mistakes[-limit:]
+
+    def get_gamification(self) -> Dict[str, Any]:
+        """Get full gamification status."""
+        return {
+            "xp": self._xp,
+            "level": self._level,
+            "level_name": self._get_level_name(),
+            "total_xp": self._total_xp,
+            "xp_to_next": self._xp_to_next_level(),
+            "xp_progress": round(self._xp_progress(), 3),
+            "next_level_name": self.LEVEL_NAMES[min(self._level, len(self.LEVEL_NAMES)-1)],
+            "achievements": [
+                {**self.ACHIEVEMENTS[k], "key": k}
+                for k in self._achievements
+            ],
+            "achievements_available": len(self.ACHIEVEMENTS),
+            "streaks": self._streaks,
+            "mistakes": self.get_learning_data(),
+            "recent_events": self.get_event_log(20),
+            "stats": self._stats,
+        }
 
 
 # ── Singleton ────────────────────────────────────────────────

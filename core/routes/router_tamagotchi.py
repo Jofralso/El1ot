@@ -118,3 +118,21 @@ async def clear_old(max_age_hours: int = 24):
     from agents.tamagotchi import get_tamagotchi_engine
     get_tamagotchi_engine().clear_old_notifications(max_age_hours)
     return {"status": "cleared"}
+
+
+@router.get("/gamification")
+async def get_gamification():
+    from agents.tamagotchi import get_tamagotchi_engine
+    return get_tamagotchi_engine().get_gamification()
+
+
+@router.get("/events")
+async def get_events(limit: int = 100, type: Optional[str] = None):
+    from agents.tamagotchi import get_tamagotchi_engine
+    return {"events": get_tamagotchi_engine().get_event_log(limit=limit, event_type=type)}
+
+
+@router.get("/mistakes")
+async def get_mistakes(limit: int = 50):
+    from agents.tamagotchi import get_tamagotchi_engine
+    return {"mistakes": get_tamagotchi_engine().get_mistakes(limit=limit)}
