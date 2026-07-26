@@ -89,8 +89,13 @@ class SupervisorAgent(BaseAgent):
         if content.startswith("chain "):
             return await self._route_to("Shell", message)
         
-        # Route command analysis to ShellAgent
+        # Route command analysis to ShellAgent (only for actual commands, not general analysis requests)
+        # Check if it's a command analysis request (analyze + command-like content)
         if content.startswith("analyze ") or content.startswith("analyse "):
+            # If it contains analysis-related keywords, route to Analysis agent
+            if any(kw in content for kw in ["findings", "results", "data", "report", "summary", "report findings"]):
+                return await self._route_to("Analysis", message)
+            # Otherwise, treat as command analysis for Shell agent
             return await self._route_to("Shell", message)
 
         llm_result = await self._llm_generate(
