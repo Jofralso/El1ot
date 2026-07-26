@@ -455,55 +455,140 @@ async function renderMap() {
 function renderTopologySVG(topo, devices) {
   const el = document.getElementById('topo');
   if(!topo.nodes||!topo.nodes.length) {
-    el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px">No topology data. Run a scan first.</div>';
+    el.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px"><div style="font-size:48px;margin-bottom:16px;opacity:0.3">🌐</div><div>No topology data yet</div><div style="font-size:11px;margin-top:4px">Run a scan to discover the network</div></div>';
     return;
   }
-  const W = el.clientWidth || 800, H = el.clientHeight || 500;
+  const W = el.clientWidth || 900, H = el.clientHeight || 500;
   const cx = W/2, cy = H/2;
   const positions = {};
-  const typeIcons = {self:'🛡',router:'📡',wifi_ap:'📶',workstation:'💻',server:'🖥',mobile:'📱',iot:'🏠',printer:'🖨',nas:'💾',unknown:'❓'};
 
-  const groups = {};
-  topo.nodes.forEach((n,i) => {
-    const g = n.type||'unknown';
-    if(!groups[g]) groups[g]=[];
-    groups[g].push(n);
+  // Find self node (center of map)
+  const selfNode = topo.nodes.find(n => n.type === 'self');
+  const routerNode = topo.nodes.find(n => n.type === 'router');
+  const wifiNodes = topo.nodes.filter(n => n.type === 'wifi_ap');
+  const deviceNodes = topo.nodes.filter(n => n.type !== 'self' && n.type !== 'router' && n.type !== 'wifi_ap');
+
+  // Position: self at center, router close, devices in rings by signal/proximity, WiFi APs on outer ring
+  if(selfNode) positions[selfNode.id] = { x: cx, y: cy };
+  if(routerNode) positions[routerNode.id] = { x: cx + 80, y: cy };
+
+  // Group devices by subnet
+  const subnets = {};
+  deviceNodes.forEach(d => {
+    const ip = d.ip || '';
+    const subnet = ip.split('.').slice(0,3).join('.');
+    if(!subnets[subnet]) subnets[subnet] = [];
+    subnets[subnet].push(d);
   });
 
-  const typeOrder = ['self','router','workstation','server','mobile','iot','printer','nas','wifi_ap','unknown'];
-  let ring = 0;
-  typeOrder.forEach(t => {
-    if(!groups[t]) return;
-    const r = 60 + ring * 80;
-    const n = groups[t].length;
-    groups[t].forEach((node,i) => {
-      const angle = (2*Math.PI*i/n) - Math.PI/2;
-      positions[node.id] = { x: cx + r*Math.cos(angle), y: cy + r*Math.sin(angle) };
+  // Position devices in concentric rings by subnet
+  let devRing = 0;
+  for(const [subnet, devs] of Object.entries(subnets)) {
+    const baseR = 140 + devRing * 90;
+    devs.forEach((d, i) => {
+      const angle = (2*Math.PI*i/devs.length) - Math.PI/2 + devRing * 0.3;
+      const signal = d.signal || 0;
+      // Closer = stronger signal (for WiFi), or just evenly spaced
+      const r = signal < -70 ? baseR + 30 : signal < -50 ? baseR : baseR - 20;
+      positions[d.id] = { x: cx + r*Math.cos(angle), y: cy + r*Math.sin(angle) };
     });
-    ring++;
+    devRing++;
+  }
+
+  // Position WiFi APs on outer ring with signal-based distance
+  const apBaseR = Math.min(W, H) * 0.42;
+  wifiNodes.forEach((ap, i) => {
+    const angle = (2*Math.PI*i/wifiNodes.length) - Math.PI/2;
+    const signal = ap.signal || -80;
+    // Strong signal = closer to center
+    const signalNorm = Math.max(0, Math.min(1, (signal + 90) / 60)); // -90dBm=0, -30dBm=1
+    const r = apBaseR - signalNorm * 60;
+    positions[ap.id] = { x: cx + r*Math.cos(angle), y: cy + r*Math.sin(angle) };
   });
 
   let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
-  svg += `<defs><filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+  svg += `<defs>`;
+  svg += `<filter id="glow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+  svg += `<filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/></filter>`;
+  svg += `<radialGradient id="rangeGrad" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#3b82f6" stop-opacity="0.03"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/></radialGradient>`;
+  svg += `</defs>`;
 
-  (topo.edges||[]).forEach(e => {
-    const a = positions[e.from], b = positions[e.to];
-    if(a&&b) svg += `<line class="topo-edge" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`;
+  // Distance rings (Masego-style scale)
+  [60, 140, 230, 320].forEach((r, i) => {
+    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#1f2937" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.5"/>`;
+    svg += `<text x="${cx+r+4}" y="${cy-4}" font-size="8" fill="#4b5563" font-family="JetBrains Mono,monospace">${r < 100 ? '' : ''}${['LAN','WiFi','Extended','WAN'][i]}</text>`;
   });
+
+  // Range fill
+  svg += `<circle cx="${cx}" cy="${cy}" r="320" fill="url(#rangeGrad)"/>`;
+
+  // Edges (fix: backend uses source/target, not from/to)
+  (topo.edges||[]).forEach(e => {
+    const fromId = e.source || e.from;
+    const toId = e.target || e.to;
+    const a = positions[fromId], b = positions[toId];
+    if(!a||!b) return;
+    const typeColors = {route:'#f59e0b', lan:'#3b82f6', wifi:'#10b981'};
+    const color = typeColors[e.type] || '#1f2937';
+    svg += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${color}" stroke-width="1" opacity="0.4"/>`;
+    // Connection label
+    const mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+    if(e.label) svg += `<text x="${mx}" y="${my-6}" font-size="7" fill="#6b7280" text-anchor="middle" font-family="JetBrains Mono,monospace">${e.label}</text>`;
+  });
+
+  // Nodes
+  const nodeColors = {self:'#3b82f6',router:'#f59e0b',wifi_ap:'#10b981',workstation:'#60a5fa',server:'#ff6b35',mobile:'#a78bfa',iot:'#6ee7b7',printer:'#fbbf24',nas:'#f472b6',unknown:'#6b7280'};
+  const nodeIcons = {self:'🛡',router:'📡',wifi_ap:'📶',workstation:'💻',server:'🖥',mobile:'📱',iot:'🏠',printer:'🖨',nas:'💾',unknown:'❓'};
+  const nodeRadii = {self:22,router:18,wifi_ap:14,workstation:12,server:12,mobile:10,iot:10,printer:10,nas:10,unknown:10};
 
   topo.nodes.forEach(n => {
     const p = positions[n.id];
     if(!p) return;
-    const sevColors = {none:'#1f2937',low:'#60a5fa',medium:'#f59e0b',high:'#ff6b35',critical:'#ff4444'};
-    const color = sevColors[n.severity]||'#3b82f6';
-    const icon = typeIcons[n.type]||'❓';
-    svg += `<g class="topo-node" transform="translate(${p.x},${p.y})" onclick="showDeviceDetail('${n.ip||n.id}')">`;
-    svg += `<circle r="18" fill="${color}" opacity="0.2" stroke="${color}" stroke-width="1" filter="url(#glow)"/>`;
-    svg += `<circle r="12" fill="#111827" stroke="${color}" stroke-width="1.5"/>`;
-    svg += `<text text-anchor="middle" dominant-baseline="central" font-size="12">${icon}</text>`;
-    svg += `<text class="topo-label" y="30">${n.label||n.ip||n.mac||''}</text>`;
+    const color = nodeColors[n.type] || '#6b7280';
+    const icon = nodeIcons[n.type] || '❓';
+    const r = nodeRadii[n.type] || 10;
+
+    svg += `<g class="topo-node" transform="translate(${p.x},${p.y})" onclick="showDeviceDetail('${n.ip||n.id}')" style="cursor:pointer">`;
+    // Outer glow
+    if(n.type === 'self' || n.type === 'router') {
+      svg += `<circle r="${r+6}" fill="${color}" opacity="0.08" filter="url(#glow)"/>`;
+    }
+    // Signal ring for WiFi APs
+    if(n.type === 'wifi_ap' && n.signal) {
+      const sigNorm = Math.max(0.1, Math.min(0.8, (n.signal + 90) / 60));
+      svg += `<circle r="${r+4}" fill="none" stroke="${color}" stroke-width="1" opacity="${sigNorm}" stroke-dasharray="2,2"/>`;
+    }
+    // Main circle
+    svg += `<circle r="${r}" fill="#111827" stroke="${color}" stroke-width="1.5" filter="url(#shadow)"/>`;
+    // Icon
+    svg += `<text text-anchor="middle" dominant-baseline="central" font-size="${r > 14 ? 12 : 9}">${icon}</text>`;
+    // Label
+    const label = n.label || n.ip || n.mac || '';
+    svg += `<text y="${r+12}" text-anchor="middle" font-size="9" fill="#9ca3af" font-family="JetBrains Mono,monospace">${label.length > 16 ? label.slice(0,14)+'..' : label}</text>`;
+    // IP below label
+    if(n.ip && n.type !== 'self') {
+      svg += `<text y="${r+22}" text-anchor="middle" font-size="7" fill="#6b7280" font-family="JetBrains Mono,monospace">${n.ip}</text>`;
+    }
     svg += `</g>`;
   });
+
+  // Legend
+  const legend = [
+    {color:'#3b82f6',icon:'🛡',label:'This Device'},
+    {color:'#f59e0b',icon:'📡',label:'Router'},
+    {color:'#10b981',icon:'📶',label:'WiFi AP'},
+    {color:'#60a5fa',icon:'💻',label:'Workstation'},
+    {color:'#ff6b35',icon:'🖥',label:'Server'},
+  ];
+  let lx = 12, ly = H - 12;
+  svg += `<g transform="translate(${lx},${ly})">`;
+  svg += `<rect x="0" y="-70" width="120" height="72" rx="4" fill="#111827" stroke="#1f2937" opacity="0.9"/>`;
+  legend.forEach((l, i) => {
+    const yy = -60 + i*14;
+    svg += `<circle cx="10" cy="${yy}" r="4" fill="${l.color}"/>`;
+    svg += `<text x="20" y="${yy+3}" font-size="8" fill="#9ca3af">${l.label}</text>`;
+  });
+  svg += `</g>`;
 
   svg += '</svg>';
   el.innerHTML = svg;
@@ -858,11 +943,37 @@ async function renderTamagotchi() {
       <!-- Left Column: Avatar + Gamification -->
       <div>
         <div class="card" style="margin-bottom:16px">
-          <div class="card-header">Tamagotchi Agent</div>
+          <div class="card-header">
+            Tamagotchi Agent ${state==='analyzing'||state==='scanning'?'<span class="pulse" style="color:var(--accent)">●</span>':''}
+            <div style="display:flex;gap:6px">
+              ${status.running?
+                (status.paused?
+                  `<button class="btn btn-sm btn-primary" onclick="resumeTama()">▶ Resume</button>`:
+                  `<button class="btn btn-sm" onclick="pauseTama()">⏸ Pause</button>`
+                ):
+                `<button class="btn btn-sm btn-primary" onclick="startTama()">▶ Start</button>`
+              }
+              <button class="btn btn-sm btn-danger" onclick="stopTama()">⏹ Stop</button>
+            </div>
+          </div>
           <div class="card-body">
             <div class="avatar-container">
               <div class="avatar-ascii">${avatarFrames[state]||avatarFrames.idle}</div>
               <div class="avatar-state" style="color:${stateColors[state]||'var(--text-muted)'}">${state}</div>
+              <div style="margin-top:8px;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;font-size:11px;color:var(--text-secondary);font-family:'JetBrains Mono',monospace;max-width:280px;text-align:center;min-height:20px">
+                ${status.current_thought||'...'}
+              </div>
+              ${status.current_phase && status.current_phase!=='idle'?`
+              <div style="margin-top:8px;width:100%">
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:4px">
+                  <span>${status.current_phase.replace(/_/g,' ')}</span>
+                  <span>${status.phase_progress?.progress||0}%</span>
+                </div>
+                <div style="height:4px;background:var(--bg-elevated);border-radius:2px;overflow:hidden">
+                  <div style="height:100%;width:${status.phase_progress?.progress||0}%;background:var(--accent);border-radius:2px;transition:width 0.5s"></div>
+                </div>
+              </div>
+              `:''}
             </div>
             <div style="text-align:center;margin-top:12px">
               <div style="font-size:24px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--accent)">Level ${level}</div>
@@ -1237,6 +1348,25 @@ function connectWS() {
   } catch(e) {}
 }
 
+// Tamagotchi Controls
+async function startTama() {
+  await fetch(API+'/tamagotchi/start', {method:'POST'});
+  setTimeout(()=>showPage('tamagotchi'), 500);
+}
+async function pauseTama() {
+  await fetch(API+'/tamagotchi/pause', {method:'POST'});
+  setTimeout(()=>showPage('tamagotchi'), 500);
+}
+async function resumeTama() {
+  await fetch(API+'/tamagotchi/resume', {method:'POST'});
+  setTimeout(()=>showPage('tamagotchi'), 500);
+}
+async function stopTama() {
+  if(!confirm('Stop the tamagotchi agent?')) return;
+  await fetch(API+'/tamagotchi/stop', {method:'POST'});
+  setTimeout(()=>showPage('tamagotchi'), 500);
+}
+
 // Utils
 function escapeHtml(s) {
   if(!s) return '';
@@ -1246,7 +1376,7 @@ function escapeHtml(s) {
 // Init
 connectWS();
 showPage('tamagotchi');
-setInterval(()=>{ if(currentPage==='tamagotchi') renderTamagotchi(); }, 30000);
+setInterval(()=>{ if(currentPage==='tamagotchi') renderTamagotchi(); }, 5000);
 </script>
 </body>
 </html>"""

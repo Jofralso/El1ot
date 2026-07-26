@@ -74,6 +74,14 @@ class ShellAgent(BaseAgent):
         'nmap', 'nikto', 'sqlmap', 'hydra', 'gobuster', 'dirb',
         'msfconsole', 'msfvenom', 'searchsploit',
     }
+
+    # Commands that need sudo
+    SUDO_COMMANDS = {
+        'nmap', 'nikto', 'sqlmap', 'hydra', 'gobuster', 'dirb',
+        'msfconsole', 'msfvenom', 'enum4linux', 'smbclient',
+        'aircrack-ng', 'airodump-ng', 'aireplay-ng', 'airbase-ng',
+        'hcitool', 'btmon', 'hcidump',
+    }
     
     LAUNCHABLE_APPS = {
         'firefox': 'firefox', 'chromium': 'chromium-browser',
@@ -318,6 +326,12 @@ class ShellAgent(BaseAgent):
         return 60.0
     
     async def _execute_command(self, command: str, message: AgentMessage) -> AgentMessage:
+        # Auto-add sudo for commands that need it
+        cmd_stripped = command.strip()
+        first_word = cmd_stripped.split()[0].lower() if cmd_stripped.split() else ""
+        if first_word in self.SUDO_COMMANDS and "sudo" not in cmd_stripped:
+            command = f"echo jetson | sudo -S {command}"
+
         safety = self._check_command_safety(command)
         
         if safety == CommandSafety.BLOCKED:

@@ -113,6 +113,20 @@ async def stop_engine():
     return {"status": "stopped"}
 
 
+@router.post("/pause")
+async def pause_engine():
+    from agents.tamagotchi import get_tamagotchi_engine
+    get_tamagotchi_engine().pause()
+    return {"status": "paused"}
+
+
+@router.post("/resume")
+async def resume_engine():
+    from agents.tamagotchi import get_tamagotchi_engine
+    get_tamagotchi_engine().resume()
+    return {"status": "resumed"}
+
+
 @router.post("/clear-notifications")
 async def clear_old(max_age_hours: int = 24):
     from agents.tamagotchi import get_tamagotchi_engine
@@ -136,3 +150,10 @@ async def get_events(limit: int = 100, type: Optional[str] = None):
 async def get_mistakes(limit: int = 50):
     from agents.tamagotchi import get_tamagotchi_engine
     return {"mistakes": get_tamagotchi_engine().get_mistakes(limit=limit)}
+
+
+@router.get("/reports")
+async def get_reports(limit: int = 10):
+    from agents.tamagotchi import get_tamagotchi_engine
+    engine = get_tamagotchi_engine()
+    return {"reports": engine._reports[-limit:]}
