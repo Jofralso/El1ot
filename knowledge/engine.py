@@ -120,6 +120,7 @@ class VectorStore:
         self._chroma = None
         self._collection = None
         self._use_chroma = False
+        self._init_chroma()
 
     def _init_chroma(self):
         if self._chroma is not None:

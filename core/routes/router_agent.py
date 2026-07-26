@@ -167,6 +167,44 @@ async def execute_workflow(workflow_name: str, request: ChatRequest):
     )
 
 
+class PentestRequest(BaseModel):
+    target: str
+    user_id: str = "anonymous"
+
+
+@router.post("/pentest")
+async def run_pentest(request: PentestRequest):
+    """Run a full pentest workflow: recon -> scan -> web scan -> analyze -> report."""
+    supervisor = get_supervisor()
+    
+    try:
+        from avatar.engine import get_avatar_engine, AvatarState
+        avatar = get_avatar_engine()
+        avatar.set_state(AvatarState.THINKING)
+        avatar.set_text_display(f"Pentesting {request.target}")
+    except Exception:
+        avatar = None
+    
+    message = AgentMessage(
+        sender="user",
+        content=f"Full pentest workflow on target: {request.target}",
+        metadata={"target": request.target, "user_id": request.user_id},
+    )
+    
+    response = await supervisor.execute_pentest_workflow(request.target, message)
+    
+    if avatar:
+        avatar.set_state(AvatarState.REPORTING)
+        avatar.set_text_display("Pentest complete")
+    
+    return ChatResponse(
+        sender=response.sender,
+        content=response.content,
+        message_type=response.message_type,
+        metadata=response.metadata,
+    )
+
+
 @router.get("/workflows/list")
 async def list_workflows():
     """List all available workflows."""
@@ -186,5 +224,6 @@ _WORKFLOW_DESCRIPTIONS = {
     "recon": "Reconnaissance workflow: Plan -> Research target -> Analyze findings -> Document",
     "vuln_assessment": "Vulnerability assessment: Knowledge lookup -> Research CVEs -> Analyze -> Generate remediation code -> Document",
     "incident_response": "Incident response: Plan -> Analyze indicators -> Research threat -> Query knowledge -> Document",
-    "pentest": "Penetration test: Plan -> Research target -> Generate tooling -> Analyze results -> Document",
+    "pentest": "Full penetration test: Recon -> Service scan -> Web scan -> Vulnerability analysis -> Exploitation execution -> Report",
+    "exploit": "Targeted exploitation: Analyze target -> Select exploit -> Execute -> Document results",
 }

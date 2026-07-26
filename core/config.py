@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     # Knowledge Engine (Phase 3)
     vectordb_path: str = "./data/vectordb"
     chromadb_host: str = "chromadb"
-    chromadb_port: int = 8000
+    chromadb_port: int = 8001
 
     # Voice (Phase 4)
     wake_word: str = "eliot"
@@ -81,6 +81,22 @@ class Settings(BaseSettings):
     # MQTT (Raspberry Pi comms)
     mqtt_host: str = "mqtt"
     mqtt_port: int = 1883
+
+    # Sentient Engine — autonomous network discovery
+    sentient_enabled: bool = True
+    sentient_scan_interval: int = 300
+    sentient_wifi_interface: str = "wlxc4e984dfb30f"
+    sentient_bt_adapter: str = "hci0"
+
+    # Tamagotchi Engine — autonomous intelligence agent
+    tamagotchi_enabled: bool = True
+    tamagotchi_scan_interval: int = 600
+    tamagotchi_auto_exploit: bool = False
+
+    # Stealth Engine — always-on network stealth
+    stealth_active: bool = True
+    stealth_default_profile: str = "normal"
+    stealth_mac_randomize: bool = False
 
     class Config:
         env_file = ".env"

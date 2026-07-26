@@ -1,8 +1,9 @@
 """
-ELIOT Touch UI
+ELIOT Touch UI v2
 
-Animated cyberpunk web interface with CSS avatar, WebSocket real-time state,
-chat, dashboard, knowledge search, and workflow execution.
+Cyberpunk interface with Mr. Robot tamagotchi avatar,
+interactive network topology, prompt suggestions, workflow forms,
+tamagotchi notifications, and knowledge dashboard.
 """
 
 import logging
@@ -18,647 +19,300 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>ELIOT - Cybersecurity Operations Terminal</title>
+<title>ELIOT — Embedded Local Intelligence Operations Terminal</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap');
 
 :root {
-  --green: #00ff41;
-  --green-dim: #00cc33;
-  --green-glow: rgba(0,255,65,0.3);
-  --orange: #ff6600;
-  --red: #ff0040;
-  --cyan: #00e5ff;
-  --bg: #050508;
-  --panel: #0a0a0f;
-  --border: #1a1a2e;
-  --text: #c0c0c0;
+  --green: #00ff41; --green-dim: #00cc33; --green-glow: rgba(0,255,65,0.3);
+  --orange: #ff6600; --red: #ff0040; --cyan: #00e5ff;
+  --bg: #050508; --panel: #0a0a0f; --border: #1a1a2e; --text: #c0c0c0;
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
 html, body { height:100%; overflow:hidden; }
+body { font-family:'Share Tech Mono','Courier New',monospace; background:var(--bg); color:var(--text); }
 
-body {
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  background: var(--bg);
-  color: var(--text);
-}
-
-/* ── Scanline overlay ── */
 body::after {
-  content:'';
-  position:fixed; inset:0; z-index:9999;
-  background: repeating-linear-gradient(
-    0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px
-  );
+  content:''; position:fixed; inset:0; z-index:9999;
+  background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);
   pointer-events:none;
 }
 
 /* ── Header ── */
 .header {
-  height:48px;
-  background: linear-gradient(180deg, #0d0d14 0%, #080810 100%);
-  border-bottom:1px solid var(--border);
-  display:flex; align-items:center; justify-content:space-between;
-  padding:0 20px;
-  position:relative;
+  height:44px; background:linear-gradient(180deg,#0d0d14,#080810);
+  border-bottom:1px solid var(--border); display:flex; align-items:center;
+  justify-content:space-between; padding:0 16px; position:relative;
 }
-.header::after {
-  content:''; position:absolute; bottom:0; left:0; right:0; height:1px;
-  background: linear-gradient(90deg, transparent, var(--green), transparent);
-  opacity:0.5;
-}
-.logo {
-  font-family:'Orbitron', monospace;
-  font-size:20px; font-weight:700;
-  color:var(--green);
-  text-shadow: 0 0 10px var(--green-glow), 0 0 20px var(--green-glow);
-  letter-spacing:3px;
-}
-.header-status {
-  display:flex; align-items:center; gap:16px; font-size:12px;
-}
-.status-dot {
-  width:8px; height:8px; border-radius:50%;
-  background:var(--green);
-  box-shadow: 0 0 6px var(--green);
-  animation: pulse-dot 2s infinite;
-}
-@keyframes pulse-dot {
-  0%,100% { opacity:1; } 50% { opacity:0.4; }
-}
-.status-label { color:#666; }
-.status-value { color:var(--green); }
+.header::after { content:''; position:absolute; bottom:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--green),transparent); opacity:0.5; }
+.logo { font-family:'Orbitron',monospace; font-size:18px; font-weight:700; color:var(--green); text-shadow:0 0 10px var(--green-glow); letter-spacing:3px; }
+.header-right { display:flex; align-items:center; gap:12px; font-size:11px; }
+.stealth-badge { padding:2px 8px; border:1px solid var(--green); color:var(--green); font-size:9px; text-transform:uppercase; letter-spacing:1px; }
+.stealth-badge.off { border-color:var(--red); color:var(--red); }
+.status-dot { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse-dot 2s infinite; }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-/* ── Navigation ── */
+/* ── Nav ── */
 .nav {
-  height:40px;
-  display:flex; gap:2px;
-  padding:0 12px;
-  background: var(--panel);
-  border-bottom:1px solid var(--border);
-  align-items:center;
+  height:36px; display:flex; gap:2px; padding:0 8px;
+  background:var(--panel); border-bottom:1px solid var(--border); align-items:center;
 }
 .nav-btn {
-  background:transparent; border:1px solid transparent;
-  color:#555; padding:6px 16px;
-  font-family:inherit; font-size:12px;
-  cursor:pointer; text-transform:uppercase;
-  letter-spacing:1px; transition:all 0.2s;
-  position:relative;
+  background:transparent; border:1px solid transparent; color:#555;
+  padding:5px 12px; font-family:inherit; font-size:11px; cursor:pointer;
+  text-transform:uppercase; letter-spacing:1px; transition:all 0.2s; position:relative;
 }
 .nav-btn:hover { color:var(--green); border-color:#1a1a2e; }
-.nav-btn.active {
-  color:var(--green); border-color:var(--green);
-  background:rgba(0,255,65,0.05);
-  text-shadow:0 0 8px var(--green-glow);
-}
-.nav-btn.active::after {
-  content:''; position:absolute; bottom:-1px; left:20%; right:20%; height:1px;
-  background:var(--green);
-}
+.nav-btn.active { color:var(--green); border-color:var(--green); background:rgba(0,255,65,0.05); text-shadow:0 0 8px var(--green-glow); }
+.nav-btn.active::after { content:''; position:absolute; bottom:-1px; left:20%; right:20%; height:1px; background:var(--green); }
+.nav-badge { background:var(--red); color:#fff; font-size:8px; padding:1px 4px; border-radius:6px; margin-left:4px; }
 
 /* ── Pages ── */
-.page {
-  display:none;
-  height:calc(100vh - 88px);
-  overflow-y:auto;
-  padding:16px;
-  animation: fadeIn 0.3s ease;
-}
+.page { display:none; height:calc(100vh - 80px); overflow-y:auto; padding:12px; animation:fadeIn 0.3s ease; }
 .page.active { display:block; }
-@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width:4px; }
-::-webkit-scrollbar-track { background:var(--bg); }
-::-webkit-scrollbar-thumb { background:#1a1a2e; border-radius:2px; }
-::-webkit-scrollbar-thumb:hover { background:var(--green-dim); }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:var(--bg); } ::-webkit-scrollbar-thumb { background:#1a1a2e; border-radius:2px; }
 
 /* ── Cards ── */
 .card {
-  background: var(--panel);
-  border:1px solid var(--border);
-  padding:16px; margin-bottom:12px;
-  position:relative;
-  overflow:hidden;
+  background:var(--panel); border:1px solid var(--border); padding:14px;
+  margin-bottom:10px; position:relative; overflow:hidden;
 }
-.card::before {
-  content:''; position:absolute; top:0; left:0; width:3px; height:100%;
-  background:var(--green); opacity:0.6;
-}
-.card h3 {
-  font-family:'Orbitron', monospace;
-  font-size:11px; color:var(--green);
-  text-transform:uppercase; letter-spacing:2px;
-  margin-bottom:12px;
-  display:flex; align-items:center; gap:8px;
-}
+.card::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:var(--green); opacity:0.6; }
+.card h3 { font-family:'Orbitron',monospace; font-size:10px; color:var(--green); text-transform:uppercase; letter-spacing:2px; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
 .card h3::before { content:'>'; color:var(--green); }
-
-.metric-row {
-  display:flex; justify-content:space-between; align-items:center;
-  padding:6px 0; border-bottom:1px solid #0d0d14;
-  font-size:13px;
-}
+.metric-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #0d0d14; font-size:12px; }
 .metric-row:last-child { border-bottom:none; }
 .metric-label { color:#555; }
 .metric-value { color:var(--green); font-weight:bold; }
-.metric-bar {
-  height:4px; background:#111; border-radius:2px; margin-top:4px; overflow:hidden;
-}
-.metric-bar-fill {
-  height:100%; border-radius:2px;
-  background: linear-gradient(90deg, var(--green-dim), var(--green));
-  transition: width 0.5s ease;
-  box-shadow: 0 0 6px var(--green-glow);
-}
+.metric-bar { height:3px; background:#111; border-radius:2px; margin-top:3px; overflow:hidden; }
+.metric-bar-fill { height:100%; border-radius:2px; background:linear-gradient(90deg,var(--green-dim),var(--green)); transition:width 0.5s; box-shadow:0 0 6px var(--green-glow); }
 
-/* ── Avatar ── */
-.avatar-container {
-  display:flex; flex-direction:column; align-items:center;
-  padding:20px 0;
-  position:relative;
+/* ── Mr. Robot Avatar ── */
+.tama-container { display:flex; flex-direction:column; align-items:center; padding:16px 0; }
+.robot-frame {
+  width:280px; height:320px; position:relative;
+  border:1px solid var(--border); background:#060610;
+  overflow:hidden; transition:all 0.5s;
 }
-.avatar-face {
-  width:220px; height:220px;
-  position:relative;
-  border-radius:50%;
-  background: radial-gradient(circle at 50% 40%, #0f0f1a 0%, #08080f 50%, #030306 100%);
-  border:2px solid var(--border);
-  box-shadow: 
-    0 0 30px rgba(0,255,65,0.1), 
-    inset 0 0 40px rgba(0,255,65,0.03),
-    inset 0 -20px 40px rgba(0,0,0,0.5);
-  transition: border-color 0.5s, box-shadow 0.5s;
-  overflow:hidden;
-}
-.avatar-face::before {
-  content:''; position:absolute; inset:0; border-radius:50%;
-  background: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.03) 0%, transparent 50%);
-  pointer-events:none;
-}
-.avatar-face.state-thinking {
-  border-color: var(--cyan);
-  box-shadow: 
-    0 0 50px rgba(0,229,255,0.25), 
-    inset 0 0 40px rgba(0,229,255,0.05),
-    inset 0 -20px 40px rgba(0,0,0,0.5);
-}
-.avatar-face.state-alert {
-  border-color: var(--red);
-  box-shadow: 
-    0 0 60px rgba(255,0,64,0.35), 
-    inset 0 0 40px rgba(255,0,64,0.08),
-    inset 0 -20px 40px rgba(0,0,0,0.5);
-  animation: alert-pulse 0.8s infinite;
-}
-@keyframes alert-pulse {
-  0%,100% { box-shadow: 0 0 60px rgba(255,0,64,0.35), inset 0 0 40px rgba(255,0,64,0.08); }
-  50% { box-shadow: 0 0 80px rgba(255,0,64,0.5), inset 0 0 50px rgba(255,0,64,0.12); }
-}
-.avatar-face.state-speaking {
-  border-color: var(--green);
-  box-shadow: 
-    0 0 60px var(--green-glow), 
-    inset 0 0 40px rgba(0,255,65,0.06),
-    inset 0 -20px 40px rgba(0,0,0,0.5);
-}
+.robot-frame.scanning { border-color:var(--cyan); box-shadow:0 0 40px rgba(0,229,255,0.15); }
+.robot-frame.alert { border-color:var(--red); box-shadow:0 0 50px rgba(255,0,64,0.2); animation:alert-pulse 0.8s infinite; }
+.robot-frame.exploiting { border-color:var(--orange); box-shadow:0 0 40px rgba(255,102,0,0.2); }
+.robot-frame.cracking { border-color:#ff00ff; box-shadow:0 0 40px rgba(255,0,255,0.15); }
+@keyframes alert-pulse { 0%,100%{box-shadow:0 0 50px rgba(255,0,64,0.2)} 50%{box-shadow:0 0 70px rgba(255,0,64,0.35)} }
 
-/* ── Face structure ── */
-.avatar-brow {
-  position:absolute; top:28%; left:50%; transform:translateX(-50%);
-  display:flex; gap:50px;
-  z-index:2;
+/* ASCII Robot Art */
+.robot-ascii {
+  position:absolute; inset:8px; font-family:'Share Tech Mono',monospace;
+  font-size:11px; line-height:1.2; color:var(--green); white-space:pre;
+  opacity:0.9; text-shadow:0 0 8px var(--green-glow);
 }
-.avatar-brow-line {
-  width:24px; height:2px;
-  background: var(--green);
-  border-radius:1px;
-  opacity:0.4;
-  transition: transform 0.3s, opacity 0.3s;
-}
-.avatar-face.state-thinking .avatar-brow-line { transform:translateY(-2px); opacity:0.6; }
-.avatar-face.state-alert .avatar-brow-line { transform:translateY(2px) rotate(-5deg); opacity:0.8; }
+.robot-ascii .eyes { animation:eye-flicker 4s ease-in-out infinite; }
+@keyframes eye-flicker { 0%,90%,100%{opacity:1} 92%{opacity:0.2} 94%{opacity:1} 96%{opacity:0.3} }
 
-/* ── Eyes ── */
-.avatar-eyes {
-  position:absolute; top:38%; left:50%; transform:translate(-50%,-50%);
-  display:flex; gap:36px;
-  z-index:3;
+/* Scan line over robot */
+.robot-scanline {
+  position:absolute; left:0; right:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(0,229,255,0.4),transparent);
+  animation:robot-scan 3s ease-in-out infinite; pointer-events:none; z-index:2;
 }
-.eye {
-  width:32px; height:32px;
-  border-radius:50%;
-  background: radial-gradient(circle, #000 0%, #000 40%, rgba(0,255,65,0.1) 70%, transparent 100%);
-  border: 1.5px solid rgba(0,255,65,0.4);
-  position:relative;
-  overflow:hidden;
-}
-.eye::before {
-  content:''; position:absolute; inset:0; border-radius:50%;
-  background: radial-gradient(circle, transparent 30%, rgba(0,255,65,0.05) 100%);
-  animation: eye-glow 3s ease-in-out infinite;
-}
-@keyframes eye-glow {
-  0%,100% { opacity:0.5; } 50% { opacity:1; }
-}
-.eye .iris {
-  width:18px; height:18px;
-  border-radius:50%;
-  background: radial-gradient(circle, var(--green) 0%, var(--green-dim) 50%, rgba(0,200,50,0.6) 100%);
-  position:absolute; top:50%; left:50%;
-  transform:translate(-50%,-50%);
-  box-shadow: 0 0 15px var(--green-glow), 0 0 30px rgba(0,255,65,0.2);
-  transition: transform 0.3s ease;
-  animation: iris-pulse 4s ease-in-out infinite;
-}
-@keyframes iris-pulse {
-  0%,100% { box-shadow: 0 0 15px var(--green-glow), 0 0 30px rgba(0,255,65,0.2); }
-  50% { box-shadow: 0 0 20px var(--green-glow), 0 0 40px rgba(0,255,65,0.3); }
-}
-.eye .pupil {
-  width:8px; height:8px;
-  border-radius:50%;
-  background:#000;
-  position:absolute; top:50%; left:50%;
-  transform:translate(-50%,-50%);
-  transition: transform 0.3s ease;
-}
-.eye .pupil::after {
-  content:''; position:absolute; top:1px; left:1px;
-  width:3px; height:3px; border-radius:50%;
-  background:rgba(255,255,255,0.7);
-}
-@keyframes blink {
-  0%,42%,46%,100% { transform:scaleY(1); }
-  44% { transform:scaleY(0.05); }
-}
-.eye.look-left .iris { transform:translate(-70%,-50%); }
-.eye.look-left .pupil { transform:translate(-80%,-50%); }
-.eye.look-right .iris { transform:translate(0%,-50%); }
-.eye.look-right .pupil { transform:translate(0%,-50%); }
-.eye.look-up .iris { transform:translate(-50%,-70%); }
-.eye.look-up .pupil { transform:translate(-50%,-80%); }
-.eye.look-down .iris { transform:translate(-50%,0%); }
-.eye.look-down .pupil { transform:translate(-50%,0%); }
+@keyframes robot-scan { 0%{top:5%;opacity:0} 10%{opacity:1} 90%{opacity:1} 100%{top:95%;opacity:0} }
 
-/* ── Nose ── */
-.avatar-nose {
-  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-  width:2px; height:12px;
-  background: linear-gradient(180deg, transparent, rgba(0,255,65,0.15), transparent);
-  border-radius:1px;
+/* Typing effect overlay */
+.robot-typing {
+  position:absolute; bottom:8px; left:8px; right:8px;
+  font-size:10px; color:var(--green); opacity:0.7;
+  border-top:1px solid rgba(0,255,65,0.1); padding-top:4px;
+  max-height:60px; overflow:hidden;
 }
+.robot-typing .cursor { animation:cursor-blink 0.6s infinite; }
+@keyframes cursor-blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-/* ── Mouth ── */
-.avatar-mouth {
-  position:absolute; bottom:26%; left:50%; transform:translateX(-50%);
-  width:44px; height:3px;
-  background: linear-gradient(90deg, transparent 0%, var(--green) 20%, var(--green) 80%, transparent 100%);
-  border-radius:2px;
-  box-shadow: 0 0 10px var(--green-glow);
-  transition: all 0.15s ease;
-  z-index:3;
+/* Matrix rain background */
+.matrix-bg {
+  position:absolute; inset:0; overflow:hidden; opacity:0.04; pointer-events:none;
 }
-.avatar-mouth.speaking {
-  height:18px; border-radius:10px;
-  animation: talk 0.12s infinite alternate;
-  background: var(--green);
+.matrix-col {
+  position:absolute; top:-100%; font-family:'Share Tech Mono',monospace;
+  font-size:10px; color:var(--green); animation:matrix-fall linear infinite;
+  white-space:nowrap;
 }
-@keyframes talk {
-  0% { height:4px; border-radius:2px; }
-  25% { height:12px; border-radius:6px; }
-  50% { height:18px; border-radius:10px; }
-  75% { height:8px; border-radius:4px; }
-  100% { height:14px; border-radius:8px; }
-}
-.avatar-mouth.smile {
-  width:36px; height:16px;
-  border-radius: 0 0 18px 18px;
-  border-top:none;
-  background: var(--green);
-}
-.avatar-mouth.frown {
-  width:36px; height:12px;
-  border-radius: 18px 18px 0 0;
-  border-bottom:none;
-  background: var(--green);
-}
+@keyframes matrix-fall { 0%{transform:translateY(-100%)} 100%{transform:translateY(400%)} }
 
-/* ── Avatar rings ── */
-.avatar-ring {
-  position:absolute; inset:-12px;
-  border-radius:50%;
-  border:1px solid rgba(0,255,65,0.12);
-  animation: ring-rotate 25s linear infinite;
-}
-.avatar-ring::before {
-  content:''; position:absolute; top:-2px; left:50%; width:4px; height:4px;
-  background:var(--green); border-radius:50%;
-  box-shadow: 0 0 10px var(--green);
-}
-.avatar-ring-outer {
-  position:absolute; inset:-20px;
-  border-radius:50%;
-  border:1px dashed rgba(0,255,65,0.06);
-  animation: ring-rotate 40s linear infinite reverse;
-}
-.avatar-ring-outer::before {
-  content:''; position:absolute; bottom:-2px; right:20%; width:3px; height:3px;
-  background:var(--cyan); border-radius:50%;
-  box-shadow: 0 0 8px var(--cyan);
-}
-@keyframes ring-rotate { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-
-/* ── Scan line ── */
-.avatar-scanline {
-  position:absolute; left:10%; right:10%; height:1px;
-  background: linear-gradient(90deg, transparent, rgba(0,255,65,0.3), transparent);
-  animation: scanline 4s ease-in-out infinite;
-  pointer-events:none;
-  z-index:4;
-}
-@keyframes scanline {
-  0% { top:20%; opacity:0; }
-  10% { opacity:1; }
-  90% { opacity:1; }
-  100% { top:80%; opacity:0; }
-}
-
-/* ── Data particles ── */
-.avatar-particles {
-  position:absolute; inset:0; border-radius:50%; overflow:hidden;
-  pointer-events:none;
-  z-index:1;
-}
-.avatar-particle {
-  position:absolute;
-  width:2px; height:2px;
-  background:var(--green);
-  border-radius:50%;
-  opacity:0;
-  animation: particle-float 3s ease-in-out infinite;
-}
-.avatar-particle:nth-child(1) { left:20%; animation-delay:0s; }
-.avatar-particle:nth-child(2) { left:40%; animation-delay:0.5s; }
-.avatar-particle:nth-child(3) { left:60%; animation-delay:1s; }
-.avatar-particle:nth-child(4) { left:80%; animation-delay:1.5s; }
-.avatar-particle:nth-child(5) { left:30%; animation-delay:2s; }
-.avatar-particle:nth-child(6) { left:70%; animation-delay:2.5s; }
-@keyframes particle-float {
-  0% { bottom:10%; opacity:0; }
-  20% { opacity:0.8; }
-  80% { opacity:0.8; }
-  100% { bottom:90%; opacity:0; }
-}
-
-.avatar-state-label {
-  margin-top:20px;
-  font-family:'Orbitron', monospace;
-  font-size:13px;
-  color:var(--green);
-  text-transform:uppercase;
-  letter-spacing:4px;
-  text-shadow:0 0 12px var(--green-glow);
-}
-.avatar-emotion-label {
-  margin-top:4px;
-  font-size:11px; color:#555;
-}
+.tama-state { margin-top:12px; font-family:'Orbitron',monospace; font-size:12px; color:var(--green); text-transform:uppercase; letter-spacing:3px; text-shadow:0 0 10px var(--green-glow); }
+.tama-detail { margin-top:4px; font-size:10px; color:#555; }
 
 /* ── Chat ── */
-.chat-container {
-  display:flex; flex-direction:column;
-  height:calc(100vh - 104px);
-}
-.chat-messages {
-  flex:1; overflow-y:auto;
-  padding:12px;
-  display:flex; flex-direction:column; gap:8px;
-}
-.chat-msg {
-  max-width:80%; padding:10px 14px;
-  font-size:13px; line-height:1.5;
-  border-radius:2px;
-  animation: msg-in 0.2s ease;
-  word-wrap:break-word;
-  white-space:pre-wrap;
-}
-@keyframes msg-in { from { opacity:0; transform:translateY(8px); } }
-.chat-msg.user {
-  align-self:flex-end;
-  background:rgba(255,102,0,0.1);
-  border:1px solid rgba(255,102,0,0.3);
-  color:var(--orange);
-}
-.chat-msg.agent {
-  align-self:flex-start;
-  background:rgba(0,255,65,0.05);
-  border:1px solid rgba(0,255,65,0.2);
-  color:var(--text);
-}
-.chat-msg .msg-sender {
-  font-family:'Orbitron', monospace;
-  font-size:9px; text-transform:uppercase;
-  letter-spacing:1px; margin-bottom:4px;
-  opacity:0.6;
-}
+.chat-container { display:flex; flex-direction:column; height:calc(100vh - 92px); }
+.chat-messages { flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:6px; }
+.chat-msg { max-width:80%; padding:8px 12px; font-size:12px; line-height:1.5; border-radius:2px; animation:msg-in 0.2s ease; word-wrap:break-word; white-space:pre-wrap; }
+@keyframes msg-in { from{opacity:0;transform:translateY(6px)} }
+.chat-msg.user { align-self:flex-end; background:rgba(255,102,0,0.1); border:1px solid rgba(255,102,0,0.3); color:var(--orange); }
+.chat-msg.agent { align-self:flex-start; background:rgba(0,255,65,0.05); border:1px solid rgba(0,255,65,0.2); color:var(--text); }
+.msg-sender { font-family:'Orbitron',monospace; font-size:8px; text-transform:uppercase; letter-spacing:1px; margin-bottom:3px; opacity:0.6; }
 .chat-msg.user .msg-sender { color:var(--orange); }
 .chat-msg.agent .msg-sender { color:var(--green); }
 
-.typing-indicator {
-  display:flex; gap:4px; padding:10px 14px; align-self:flex-start;
-  background:rgba(0,255,65,0.05); border:1px solid rgba(0,255,65,0.2);
-  border-radius:2px;
-}
-.typing-dot {
-  width:6px; height:6px; border-radius:50%;
-  background:var(--green); opacity:0.4;
-  animation: typing-bounce 1.2s infinite;
-}
-.typing-dot:nth-child(2) { animation-delay:0.2s; }
-.typing-dot:nth-child(3) { animation-delay:0.4s; }
-@keyframes typing-bounce {
-  0%,60%,100% { opacity:0.4; transform:translateY(0); }
-  30% { opacity:1; transform:translateY(-4px); }
-}
+.typing-indicator { display:flex; gap:4px; padding:8px 12px; align-self:flex-start; background:rgba(0,255,65,0.05); border:1px solid rgba(0,255,65,0.2); border-radius:2px; }
+.typing-dot { width:5px; height:5px; border-radius:50%; background:var(--green); opacity:0.4; animation:typing-bounce 1.2s infinite; }
+.typing-dot:nth-child(2){animation-delay:0.2s} .typing-dot:nth-child(3){animation-delay:0.4s}
+@keyframes typing-bounce { 0%,60%,100%{opacity:0.4;transform:translateY(0)} 30%{opacity:1;transform:translateY(-3px)} }
 
-.chat-input-bar {
-  display:flex; gap:8px; padding:12px;
-  background:var(--panel);
-  border-top:1px solid var(--border);
-}
-.chat-input-bar input {
-  flex:1; background:#0a0a0f;
-  border:1px solid var(--border); color:var(--green);
-  padding:10px 14px; font-family:inherit; font-size:13px;
-  outline:none; transition:border-color 0.2s;
-}
+.chat-input-bar { display:flex; gap:6px; padding:10px; background:var(--panel); border-top:1px solid var(--border); }
+.chat-input-bar input { flex:1; background:#0a0a0f; border:1px solid var(--border); color:var(--green); padding:8px 12px; font-family:inherit; font-size:12px; outline:none; transition:border-color 0.2s; }
 .chat-input-bar input:focus { border-color:var(--green); }
 .chat-input-bar input::placeholder { color:#333; }
-.chat-input-bar button {
-  background:var(--green); color:#000; border:none;
-  padding:10px 20px; font-family:inherit; font-size:12px;
-  font-weight:bold; cursor:pointer; text-transform:uppercase;
-  letter-spacing:1px; transition:all 0.2s;
-}
-.chat-input-bar button:hover {
-  background:#33ff66;
-  box-shadow:0 0 12px var(--green-glow);
-}
+.chat-input-bar button { background:var(--green); color:#000; border:none; padding:8px 16px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; text-transform:uppercase; letter-spacing:1px; }
 
-/* ── Knowledge ── */
-.kb-search {
-  display:flex; gap:8px; margin-bottom:12px;
+/* Prompt Suggestions */
+.suggestions { display:flex; gap:4px; padding:6px 10px; overflow-x:auto; flex-wrap:nowrap; }
+.suggestions::-webkit-scrollbar { height:2px; }
+.suggest-chip {
+  flex-shrink:0; padding:4px 10px; font-size:10px; border:1px solid var(--border);
+  color:#666; cursor:pointer; transition:all 0.2s; white-space:nowrap;
+  background:var(--panel);
 }
-.kb-search input {
-  flex:1; background:#0a0a0f;
-  border:1px solid var(--border); color:var(--green);
-  padding:10px 14px; font-family:inherit; font-size:13px;
-  outline:none;
-}
-.kb-search input:focus { border-color:var(--green); }
-.kb-search button {
-  background:var(--green); color:#000; border:none;
-  padding:10px 16px; font-family:inherit; cursor:pointer;
-  font-weight:bold; text-transform:uppercase; font-size:12px;
-}
-.kb-result {
-  padding:10px; background:#08080c; border:1px solid var(--border);
-  margin-bottom:8px; font-size:12px; line-height:1.5;
-}
-.kb-result .kb-source { color:var(--cyan); font-size:10px; text-transform:uppercase; }
-.kb-result .kb-score { color:#555; font-size:10px; float:right; }
-.kb-result .kb-text { color:#888; margin-top:4px; }
+.suggest-chip:hover { border-color:var(--green); color:var(--green); background:rgba(0,255,65,0.05); }
 
-/* ── Workflows ── */
+/* ── Network Map ── */
+.network-map { width:100%; height:400px; background:#060610; border:1px solid var(--border); position:relative; overflow:hidden; margin-bottom:10px; }
+.network-map svg { width:100%; height:100%; }
+.net-node { cursor:pointer; transition:all 0.3s; }
+.net-node:hover { filter:brightness(1.3); }
+.net-node text { font-family:'Share Tech Mono',monospace; font-size:9px; fill:var(--text); }
+.net-edge { stroke:#1a1a2e; stroke-width:1; }
+.net-edge.active { stroke:var(--green); stroke-width:1.5; stroke-dasharray:4; animation:dash-flow 2s linear infinite; }
+@keyframes dash-flow { to{stroke-dashoffset:-8} }
+
+/* ── Notifications ── */
+.notif-list { max-height:300px; overflow-y:auto; }
+.notif-item {
+  padding:8px 10px; border:1px solid var(--border); margin-bottom:6px;
+  font-size:11px; display:flex; justify-content:space-between; align-items:center;
+}
+.notif-item.pending { border-left:3px solid var(--orange); }
+.notif-item.approved { border-left:3px solid var(--green); }
+.notif-item.denied { border-left:3px solid var(--red); }
+.notif-title { color:var(--text); font-weight:bold; }
+.notif-meta { color:#555; font-size:9px; }
+.notif-actions { display:flex; gap:4px; }
+.notif-btn { padding:3px 8px; font-size:9px; border:none; cursor:pointer; font-weight:bold; text-transform:uppercase; }
+.notif-btn.approve { background:var(--green); color:#000; }
+.notif-btn.deny { background:var(--red); color:#fff; }
+
+/* ── Workflow Forms ── */
 .workflow-card {
-  background:var(--panel); border:1px solid var(--border);
-  padding:14px; margin-bottom:8px; cursor:pointer;
-  transition:all 0.2s; position:relative;
+  background:var(--panel); border:1px solid var(--border); padding:12px;
+  margin-bottom:8px; cursor:pointer; transition:all 0.2s;
 }
-.workflow-card:hover {
-  border-color:var(--green);
-  background:rgba(0,255,65,0.03);
+.workflow-card:hover { border-color:var(--green); background:rgba(0,255,65,0.03); }
+.workflow-card h4 { color:var(--green); font-size:12px; margin-bottom:3px; font-family:'Orbitron',monospace; text-transform:uppercase; letter-spacing:1px; }
+.workflow-card p { color:#555; font-size:10px; }
+.wf-form { margin-top:8px; display:none; }
+.workflow-card.expanded .wf-form { display:block; }
+.wf-form input, .wf-form select {
+  width:100%; background:#0a0a0f; border:1px solid var(--border); color:var(--green);
+  padding:6px 10px; font-family:inherit; font-size:11px; outline:none; margin-bottom:6px;
 }
-.workflow-card h4 {
-  color:var(--green); font-size:13px; margin-bottom:4px;
-  font-family:'Orbitron', monospace; text-transform:uppercase;
-  letter-spacing:1px;
-}
-.workflow-card p { color:#555; font-size:11px; }
-.workflow-card .wf-agents {
-  display:flex; gap:4px; margin-top:8px; flex-wrap:wrap;
-}
-.wf-agent-tag {
-  background:rgba(0,255,65,0.1); border:1px solid rgba(0,255,65,0.2);
-  color:var(--green); padding:2px 8px; font-size:9px;
-  text-transform:uppercase; letter-spacing:1px;
-}
+.wf-form input:focus, .wf-form select:focus { border-color:var(--green); }
+.wf-form label { display:block; font-size:9px; color:#555; text-transform:uppercase; letter-spacing:1px; margin-bottom:2px; }
+.wf-run-btn { background:var(--green); color:#000; border:none; padding:6px 14px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; text-transform:uppercase; }
+.wf-agents { display:flex; gap:3px; margin-top:6px; flex-wrap:wrap; }
+.wf-agent-tag { background:rgba(0,255,65,0.1); border:1px solid rgba(0,255,65,0.2); color:var(--green); padding:1px 6px; font-size:8px; text-transform:uppercase; letter-spacing:1px; }
 
-/* ── Boot animation ── */
-.boot-screen {
-  position:fixed; inset:0; z-index:10000;
-  background:var(--bg);
-  display:flex; flex-direction:column;
-  align-items:center; justify-content:center;
-  transition: opacity 0.8s ease;
-}
+/* ── Boot ── */
+.boot-screen { position:fixed; inset:0; z-index:10000; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; transition:opacity 0.8s; }
 .boot-screen.hidden { opacity:0; pointer-events:none; }
-.boot-text {
-  font-family:'Share Tech Mono', monospace;
-  color:var(--green); font-size:14px;
-  text-align:left; line-height:1.8;
-  max-width:500px;
-}
-.boot-cursor {
-  display:inline-block; width:8px; height:14px;
-  background:var(--green); animation: cursor-blink 0.6s infinite;
-  vertical-align:middle; margin-left:2px;
-}
-@keyframes cursor-blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
-.boot-progress {
-  width:300px; height:2px; background:#111; margin-top:24px;
-  border-radius:1px; overflow:hidden;
-}
-.boot-progress-fill {
-  height:100%; width:0%; background:var(--green);
-  transition: width 0.3s ease;
-  box-shadow:0 0 8px var(--green-glow);
-}
+.boot-text { font-family:'Share Tech Mono',monospace; color:var(--green); font-size:13px; text-align:left; line-height:1.7; max-width:500px; }
+.boot-progress { width:300px; height:2px; background:#111; margin-top:20px; border-radius:1px; overflow:hidden; }
+.boot-progress-fill { height:100%; width:0%; background:var(--green); transition:width 0.3s; box-shadow:0 0 8px var(--green-glow); }
+
+/* ── Two-col layout ── */
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+@media(max-width:768px){ .two-col{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
 
-<!-- Boot Screen -->
 <div class="boot-screen" id="boot-screen">
   <div class="boot-text" id="boot-text"></div>
   <div class="boot-progress"><div class="boot-progress-fill" id="boot-progress"></div></div>
 </div>
 
-<!-- Main App (hidden during boot) -->
 <div id="app" style="display:none">
   <div class="header">
     <div class="logo">ELIOT</div>
-    <div class="header-status">
-      <div class="status-dot" id="status-dot"></div>
-      <span class="status-label">SYS</span>
-      <span class="status-value" id="status-text">INIT</span>
+    <div class="header-right">
+      <span class="stealth-badge" id="stealth-badge">STEALTH</span>
+      <div class="status-dot"></div>
+      <span id="tama-state-header">IDLE</span>
     </div>
   </div>
   <div class="nav">
-    <button class="nav-btn active" data-page="home">Interface</button>
+    <button class="nav-btn active" data-page="home">Terminal</button>
+    <button class="nav-btn" data-page="network">Network</button>
     <button class="nav-btn" data-page="chat">Chat</button>
-    <button class="nav-btn" data-page="dashboard">System</button>
-    <button class="nav-btn" data-page="knowledge">Knowledge</button>
     <button class="nav-btn" data-page="workflows">Workflows</button>
+    <button class="nav-btn" data-page="tamagotchi">Tamagotchi<span class="nav-badge" id="notif-badge" style="display:none">0</span></button>
+    <button class="nav-btn" data-page="system">System</button>
   </div>
 
-  <!-- Home / Avatar Page -->
+  <!-- ── Home / Mr. Robot ── -->
   <div id="page-home" class="page active">
-    <div class="avatar-container">
-      <div class="avatar-face" id="avatar-face">
-        <div class="avatar-ring"></div>
-        <div class="avatar-ring-outer"></div>
-        <div class="avatar-scanline"></div>
-        <div class="avatar-particles">
-          <div class="avatar-particle"></div>
-          <div class="avatar-particle"></div>
-          <div class="avatar-particle"></div>
-          <div class="avatar-particle"></div>
-          <div class="avatar-particle"></div>
-          <div class="avatar-particle"></div>
-        </div>
-        <div class="avatar-brow">
-          <div class="avatar-brow-line"></div>
-          <div class="avatar-brow-line"></div>
-        </div>
-        <div class="avatar-eyes">
-          <div class="eye" id="eye-left"><div class="iris"></div><div class="pupil"></div></div>
-          <div class="eye" id="eye-right"><div class="iris"></div><div class="pupil"></div></div>
-        </div>
-        <div class="avatar-nose"></div>
-        <div class="avatar-mouth" id="avatar-mouth"></div>
+    <div class="tama-container">
+      <div class="robot-frame" id="robot-frame">
+        <div class="matrix-bg" id="matrix-bg"></div>
+        <div class="robot-scanline"></div>
+        <div class="robot-ascii" id="robot-art"></div>
+        <div class="robot-typing" id="robot-typing"></div>
       </div>
-      <div class="avatar-state-label" id="avatar-state-label">BOOTING</div>
-      <div class="avatar-emotion-label" id="avatar-emotion-label">initializing systems...</div>
+      <div class="tama-state" id="tama-state">IDLE</div>
+      <div class="tama-detail" id="tama-detail">systems online</div>
     </div>
-    <div class="card">
-      <h3>System Status</h3>
-      <div id="home-status">Connecting to ELIOT...</div>
+    <div class="two-col">
+      <div class="card">
+        <h3>Quick Actions</h3>
+        <div id="quick-actions"></div>
+      </div>
+      <div class="card">
+        <h3>Recent Activity</h3>
+        <div id="recent-activity" style="max-height:150px;overflow-y:auto;font-size:11px;">Loading...</div>
+      </div>
     </div>
   </div>
 
-  <!-- Chat Page -->
+  <!-- ── Network ── -->
+  <div id="page-network" class="page">
+    <div class="card">
+      <h3>Network Topology</h3>
+      <div class="network-map" id="network-map">
+        <svg id="net-svg"></svg>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button onclick="triggerScan()" style="background:var(--green);color:#000;border:none;padding:6px 14px;font-family:inherit;font-size:10px;font-weight:bold;cursor:pointer;text-transform:uppercase;">Scan Now</button>
+        <span id="scan-status" style="color:#555;font-size:10px;line-height:28px;"></span>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <h3>Discovered Devices</h3>
+        <div id="device-list" style="max-height:300px;overflow-y:auto;">No devices yet</div>
+      </div>
+      <div class="card">
+        <h3>WiFi Access Points</h3>
+        <div id="wifi-list" style="max-height:300px;overflow-y:auto;">No APs found</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Chat ── -->
   <div id="page-chat" class="page">
     <div class="chat-container">
       <div class="chat-messages" id="chat-messages">
-        <div class="chat-msg agent">
-          <div class="msg-sender">ELIOT CORE</div>
-          System online. All agents operational. How can I assist you?
-        </div>
+        <div class="chat-msg agent"><div class="msg-sender">ELIOT</div>System online. All agents operational. How can I assist you?</div>
       </div>
+      <div class="suggestions" id="chat-suggestions"></div>
       <div class="chat-input-bar">
         <input id="chat-input" placeholder="Enter command or question..." autocomplete="off">
         <button id="chat-send" onclick="sendChat()">Send</button>
@@ -666,188 +320,316 @@ body::after {
     </div>
   </div>
 
-  <!-- Dashboard Page -->
-  <div id="page-dashboard" class="page">
-    <div class="card">
-      <h3>Hardware</h3>
-      <div id="dash-hardware">Loading...</div>
-    </div>
-    <div class="card">
-      <h3>Services</h3>
-      <div id="dash-services">Loading...</div>
-    </div>
-    <div class="card">
-      <h3>Agents</h3>
-      <div id="dash-agents">Loading...</div>
-    </div>
-  </div>
-
-  <!-- Knowledge Page -->
-  <div id="page-knowledge" class="page">
-    <div class="card">
-      <h3>Knowledge Base</h3>
-      <div id="kb-stats">Loading...</div>
-    </div>
-    <div class="card">
-      <h3>Semantic Search</h3>
-      <div class="kb-search">
-        <input id="kb-input" placeholder="Search security knowledge..." onkeydown="if(event.key==='Enter')searchKB()">
-        <button onclick="searchKB()">Search</button>
-      </div>
-      <div id="kb-results"></div>
-    </div>
-  </div>
-
-  <!-- Workflows Page -->
+  <!-- ── Workflows ── -->
   <div id="page-workflows" class="page">
     <div class="card">
-      <h3>Multi-Agent Workflows</h3>
-      <p style="color:#555;font-size:12px;margin-bottom:12px;">
-        Execute coordinated security workflows across multiple agents.
-      </p>
+      <h3>Workflows</h3>
+      <p style="color:#555;font-size:11px;margin-bottom:10px;">Configure and execute multi-agent security workflows.</p>
       <div id="workflows-list">Loading...</div>
     </div>
-    <div class="card" id="wf-run-card" style="display:none">
-      <h3>Workflow Output</h3>
-      <div id="wf-output" style="font-size:12px;line-height:1.6;max-height:400px;overflow-y:auto;"></div>
+    <div class="card">
+      <h3>Quick Pentest</h3>
+      <div style="display:flex;gap:6px;">
+        <input id="pentest-target" placeholder="Target IP or CIDR" style="flex:1;background:#0a0a0f;border:1px solid var(--border);color:var(--green);padding:8px 12px;font-family:inherit;font-size:12px;outline:none;" onkeydown="if(event.key==='Enter')runPentest()">
+        <button onclick="runPentest()" style="background:var(--red);color:#000;border:none;padding:8px 16px;font-family:inherit;font-size:11px;font-weight:bold;cursor:pointer;text-transform:uppercase;">Pentest</button>
+      </div>
     </div>
+    <div class="card" id="wf-run-card" style="display:none">
+      <h3>Output</h3>
+      <div id="wf-output" style="font-size:11px;line-height:1.5;max-height:500px;overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- ── Tamagotchi ── -->
+  <div id="page-tamagotchi" class="page">
+    <div class="two-col">
+      <div class="card">
+        <h3>Notifications</h3>
+        <div class="notif-list" id="notif-list">Loading...</div>
+      </div>
+      <div class="card">
+        <h3>Exploit Queue</h3>
+        <div id="exploit-queue" style="max-height:300px;overflow-y:auto;">No exploits queued</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Knowledge Base</h3>
+      <div id="knowledge-stats" style="margin-bottom:8px;">Loading...</div>
+      <div id="knowledge-entries" style="max-height:200px;overflow-y:auto;font-size:11px;"></div>
+    </div>
+    <div class="card">
+      <h3>Cracking Sessions</h3>
+      <div id="crack-sessions">No active sessions</div>
+    </div>
+  </div>
+
+  <!-- ── System ── -->
+  <div id="page-system" class="page">
+    <div class="card"><h3>Hardware</h3><div id="dash-hardware">Loading...</div></div>
+    <div class="card"><h3>Services</h3><div id="dash-services">Loading...</div></div>
+    <div class="card"><h3>Agents</h3><div id="dash-agents">Loading...</div></div>
   </div>
 </div>
 
 <script>
-// ── Boot Sequence ──
+// ═══════════════════════════════════════════════════
+// Mr. Robot ASCII Art Frames
+// ═══════════════════════════════════════════════════
+const ROBOT_FRAMES = {
+idle: `       ┌─────────────────┐
+       │  ░░░░░░░░░░░░░  │
+       │  ░ ┌─────────┐ ░  │
+       │  ░ │ ▓▓   ▓▓ │ ░  │
+       │  ░ │ ▓▓   ▓▓ │ ░  │
+       │  ░ │  ╲   ╱  │ ░  │
+       │  ░ └─────────┘ ░  │
+       │  ░░░░░░░░░░░░░  │
+       │    ┌────────┐    │
+       │    │ ╔════╗ │    │
+       │    │ ║    ║ │    │
+       │    │ ╚════╝ │    │
+       │    └────────┘    │
+       │   ╱          ╲   │
+       └─────────────────┘`,
+scanning: `       ┌─────────────────┐
+       │  ▓▓▓▓▓▓▓▓▓▓▓▓▓  │
+       │  ▓ ┌─────────┐ ▓  │
+       │  ▓ │ ◉◉   ◉◉ │ ▓  │
+       │  ▓ │ ◉◉   ◉◉ │ ▓  │
+       │  ▓ │  ◇   ◇  │ ▓  │
+       │  ▓ └─────────┘ ▓  │
+       │  ▓▓▓▓▓▓▓▓▓▓▓▓▓  │
+       │    ┌────────┐    │
+       │    │ ╔════╗ │    │
+       │    │ ║ ◊◊ ║ │    │
+       │    │ ╚════╝ │    │
+       │    └────────┘    │
+       │   ╱   ◈◈◈   ╲   │
+       └─────────────────┘`,
+alert: `       ┌─────────────────┐
+       │  █████████████  │
+       │  █ ┌─────────┐ █  │
+       │  █ │ ▓▓▓  ▓▓▓│ █  │
+       │  █ │ ▓▓▓  ▓▓▓│ █  │
+       │  █ │  ▲   ▲  │ █  │
+       │  █ └─────────┘ █  │
+       │  █████████████  │
+       │    ┌────────┐    │
+       │    │ ╔════╗ │    │
+       │    │ ║ ⚠⚠ ║ │    │
+       │    │ ╚════╝ │    │
+       │    └────────┘    │
+       │   ╱  ▓▓▓▓▓▓  ╲  │
+       └─────────────────┘`,
+exploiting: `       ┌─────────────────┐
+       │  ▒▒▒▒▒▒▒▒▒▒▒▒▒  │
+       │  ▒ ┌─────────┐ ▒  │
+       │  ▒ │ ██   ██ │ ▒  │
+       │  ▒ │ ██   ██ │ ▒  │
+       │  ▒ │  ▓   ▓  │ ▒  │
+       │  ▒ └─────────┘ ▒  │
+       │  ▒▒▒▒▒▒▒▒▒▒▒▒▒  │
+       │    ┌────────┐    │
+       │    │ ╔════╗ │    │
+       │    │ ║ >> ║ │    │
+       │    │ ╚════╝ │    │
+       │    └────────┘    │
+       │   ╱  ▶▶▶▶▶▶  ╲  │
+       └─────────────────┘`,
+cracking: `       ┌─────────────────┐
+       │  ░░░░░░░░░░░░░  │
+       │  ░ ┌─────────┐ ░  │
+       │  ░ │ ◆◆   ◆◆ │ ░  │
+       │  ░ │ ◆◆   ◆◆ │ ░  │
+       │  ░ │  ♦   ♦  │ ░  │
+       │  ░ └─────────┘ ░  │
+       │  ░░░░░░░░░░░░░  │
+       │    ┌────────┐    │
+       │    │ ╔════╗ │    │
+       │    │ ║$$$ ║ │    │
+       │    │ ╚════╝ │    │
+       │    └────────┘    │
+       │   ╱  $$$$$$$  ╲  │
+       └─────────────────┘`,
+analyzing: `       ┌─────────────────┐
+       │  ═════════════  │
+       │  ═ ┌─────────┐ ═  │
+       │  ═ │ ●●   ●● │ ═  │
+       │  ═ │ ●●   ●● │ ═  │
+       │  ═ │  ○   ○  │ ═  │
+       │  ═ └─────────┘ ═  │
+       │  ═════════════  │
+       │    ┌────────┐    │
+       │    │ ╔════╗ │    │
+       │    │ ║ ◎◎ ║ │    │
+       │    │ ╚════╝ │    │
+       │    └────────┘    │
+       │   ╱  ≡≡≡≡≡≡  ╲  │
+       └─────────────────┘`,
+sleeping: `       ┌─────────────────┐
+       │                   │
+       │    ┌─────────┐    │
+       │    │ ──   ── │    │
+       │    │         │    │
+       │    │  ─   ─  │    │
+       │    └─────────┘    │
+       │                   │
+       │    ┌────────┐    │
+       │    │ ╔════╗ │    │
+       │    │ ║    ║ │    │
+       │    │ ╚════╝ │    │
+       │    └────────┘    │
+       │    z  Z  z  Z    │
+       └─────────────────┘`
+};
+
+// ═══════════════════════════════════════════════════
+// Boot Sequence
+// ═══════════════════════════════════════════════════
 const BOOT_LINES = [
-  '[BIOS] ELIOT Core v0.3.0 - Embedded Local Intelligence Operations Terminal',
-  '[BOOT] Initializing hardware abstraction layer...',
+  '[BIOS] ELIOT Core v0.4.0 — Embedded Local Intelligence Operations Terminal',
+  '[BOOT] Initializing hardware abstraction...',
   '[BOOT] NVIDIA Jetson Orin Nano detected',
-  '[BOOT] CUDA 12.1 toolkit available',
+  '[BOOT] CUDA 12.1 available — GPU inference ready',
   '[INIT] Loading agent framework...',
-  '[INIT] 8 agents registered: Supervisor, Planner, Knowledge, Analysis, Research, Code, Documentation, Voice, Vision',
-  '[INIT] Knowledge engine online - 57 documents indexed',
-  '[INIT] Ollama GPU inference: qwen2.5:3b @ 22 tok/s',
-  '[INIT] Connecting to ChromaDB vector store...',
-  '[INIT] Redis message broker connected',
-  '[WARN] Voice hardware not detected (expected on dev)',
-  '[WARN] Vision hardware not detected (expected on dev)',
-  '[SYS ] All critical systems operational',
-  '[SYS ] Avatar engine initialized',
+  '[INIT] 9 agents registered + Stealth + Sentient + Tamagotchi',
+  '[INIT] Knowledge engine online — security KB indexed',
+  '[INIT] Ollama GPU: qwen2.5:3b @ 22 tok/s',
+  '[INIT] Stealth engine: ACTIVE (profile: normal)',
+  '[INIT] Sentient engine: autonomous scanning enabled',
+  '[INIT] Tamagotchi engine: autonomous intelligence active',
+  '[SYS ] All systems operational',
+  '[SYS ] Mr. Robot avatar initialized',
   '[SYS ] Ready.',
 ];
-
 let bootIdx = 0;
-let bootDone = false;
 const bootText = document.getElementById('boot-text');
 const bootProgress = document.getElementById('boot-progress');
-
 function bootStep() {
   if (bootIdx >= BOOT_LINES.length) {
-    bootDone = true;
     setTimeout(() => {
       document.getElementById('boot-screen').classList.add('hidden');
       document.getElementById('app').style.display = '';
       setTimeout(() => document.getElementById('boot-screen').remove(), 1000);
       initApp();
-    }, 400);
+    }, 300);
     return;
   }
   bootText.innerHTML += BOOT_LINES[bootIdx] + '<br>';
   bootText.scrollTop = bootText.scrollHeight;
-  bootProgress.style.width = ((bootIdx + 1) / BOOT_LINES.length * 100) + '%';
+  bootProgress.style.width = ((bootIdx+1)/BOOT_LINES.length*100)+'%';
   bootIdx++;
-  setTimeout(bootStep, 80 + Math.random() * 120);
+  setTimeout(bootStep, 70+Math.random()*100);
 }
-setTimeout(bootStep, 500);
+setTimeout(bootStep, 400);
 
-// ── Navigation ──
+// ═══════════════════════════════════════════════════
+// Navigation
+// ═══════════════════════════════════════════════════
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById('page-' + btn.dataset.page).classList.add('active');
+    document.getElementById('page-'+btn.dataset.page).classList.add('active');
     loadPageData(btn.dataset.page);
   });
 });
 
-// ── Avatar State ──
-let avatarState = 'booting';
-let avatarEmotion = 'neutral';
-let ws = null;
-let idleEyeTimer = null;
+// ═══════════════════════════════════════════════════
+// Matrix Rain Background
+// ═══════════════════════════════════════════════════
+function initMatrix() {
+  const bg = document.getElementById('matrix-bg');
+  if (!bg) return;
+  bg.innerHTML = '';
+  const chars = '01アイウエオカキクケコサシスセソ';
+  for (let i = 0; i < 15; i++) {
+    const col = document.createElement('div');
+    col.className = 'matrix-col';
+    col.style.left = (i/15*100)+'%';
+    col.style.animationDuration = (3+Math.random()*4)+'s';
+    col.style.animationDelay = (-Math.random()*5)+'s';
+    let text = '';
+    for (let j=0;j<20;j++) text += chars[Math.floor(Math.random()*chars.length)]+'\n';
+    col.textContent = text;
+    bg.appendChild(col);
+  }
+}
 
-function connectAvatarWS() {
-  const wsUrl = 'ws://' + location.host + '/avatar/ws';
-  ws = new WebSocket(wsUrl);
+// ═══════════════════════════════════════════════════
+// Mr. Robot Avatar
+// ═══════════════════════════════════════════════════
+let tamaState = 'idle';
+let tamaDetail = 'systems online';
+let typingText = '';
+let typingIdx = 0;
+
+function updateRobot(state, detail) {
+  tamaState = state || 'idle';
+  tamaDetail = detail || tamaDetail;
+  const frame = document.getElementById('robot-frame');
+  const art = document.getElementById('robot-art');
+  const stateEl = document.getElementById('tama-state');
+  const detailEl = document.getElementById('tama-detail');
+  const headerState = document.getElementById('tama-state-header');
+
+  art.innerHTML = ROBOT_FRAMES[tamaState] || ROBOT_FRAMES.idle;
+  stateEl.textContent = tamaState.toUpperCase();
+  detailEl.textContent = tamaDetail;
+  if (headerState) headerState.textContent = tamaState.toUpperCase();
+
+  frame.className = 'robot-frame';
+  if (['scanning','mapping'].includes(tamaState)) frame.classList.add('scanning');
+  else if (tamaState === 'alert') frame.classList.add('alert');
+  else if (tamaState === 'exploiting') frame.classList.add('exploiting');
+  else if (tamaState === 'cracking') frame.classList.add('cracking');
+}
+
+function setTypingText(text) {
+  typingText = text || '';
+  typingIdx = 0;
+}
+
+setInterval(() => {
+  const el = document.getElementById('robot-typing');
+  if (!el || !typingText) return;
+  typingIdx = (typingIdx + 1) % (typingText.length + 10);
+  const visible = typingText.substring(0, typingIdx);
+  el.innerHTML = 'root@eliot:~$ ' + visible + '<span class="cursor">█</span>';
+}, 60);
+
+// ═══════════════════════════════════════════════════
+// WebSocket — Avatar + Tamagotchi
+// ═══════════════════════════════════════════════════
+let ws = null;
+function connectWS() {
+  ws = new WebSocket('ws://'+location.host+'/avatar/ws');
   ws.onopen = () => {
-    console.log('Avatar WS connected');
-    startIdleAnimations();
+    setTimeout(() => {
+      if (tamaState === 'idle') updateRobot('idle','systems online');
+    }, 3000);
   };
   ws.onmessage = (e) => {
     try {
-      const data = JSON.parse(e.data);
-      updateAvatar(data);
-    } catch(err) {}
+      const d = JSON.parse(e.data);
+      updateRobot(d.state, d.text_display || d.emotion);
+    } catch(err){}
   };
-  ws.onclose = () => setTimeout(connectAvatarWS, 3000);
+  ws.onclose = () => setTimeout(connectWS, 3000);
   ws.onerror = () => ws.close();
 }
 
-function startIdleAnimations() {
-  if (idleEyeTimer) clearInterval(idleEyeTimer);
-  idleEyeTimer = setInterval(() => {
-    if (avatarState !== 'idle') return;
-    const eyes = document.querySelectorAll('.eye');
-    const dirs = ['look-left', 'look-right', 'look-up', 'look-down', ''];
-    const dir = dirs[Math.floor(Math.random() * dirs.length)];
-    eyes.forEach(e => {
-      e.className = 'eye';
-      if (dir) e.classList.add(dir);
-    });
-    setTimeout(() => eyes.forEach(e => e.className = 'eye'), 2000 + Math.random() * 2000);
-  }, 4000 + Math.random() * 3000);
-}
-
-function updateAvatar(data) {
-  avatarState = data.state || 'idle';
-  avatarEmotion = data.emotion || 'neutral';
-
-  const face = document.getElementById('avatar-face');
-  const mouth = document.getElementById('avatar-mouth');
-  const stateLabel = document.getElementById('avatar-state-label');
-  const emotionLabel = document.getElementById('avatar-emotion-label');
-
-  face.className = 'avatar-face';
-  if (['thinking','analyzing'].includes(avatarState)) face.classList.add('state-thinking');
-  if (avatarState === 'alert') face.classList.add('state-alert');
-  if (['speaking','reporting'].includes(avatarState)) face.classList.add('state-speaking');
-
-  mouth.className = 'avatar-mouth';
-  if (['speaking','reporting'].includes(avatarState)) mouth.classList.add('speaking');
-  else if (avatarEmotion === 'satisfied') mouth.classList.add('smile');
-  else if (avatarEmotion === 'concerned') mouth.classList.add('frown');
-
-  stateLabel.textContent = avatarState.toUpperCase();
-  emotionLabel.textContent = data.text_display || avatarEmotion;
-
-  const statusText = document.getElementById('status-text');
-  if (statusText) statusText.textContent = avatarState.toUpperCase();
-  
-  if (avatarState === 'idle') startIdleAnimations();
-}
-
-// ── Chat ──
-let chatHistory = [];
-
+// ═══════════════════════════════════════════════════
+// Chat
+// ═══════════════════════════════════════════════════
 async function sendChat() {
   const input = document.getElementById('chat-input');
   const msg = input.value.trim();
   if (!msg) return;
   input.value = '';
   addChatMsg(msg, 'user');
-
-  if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({type:'set_state', state:'thinking'}));
-  }
+  if (ws && ws.readyState===1) ws.send(JSON.stringify({type:'set_state',state:'thinking'}));
 
   const typing = document.createElement('div');
   typing.className = 'typing-indicator';
@@ -856,303 +638,349 @@ async function sendChat() {
   scrollChat();
 
   try {
-    // Check if this is a shell command (starts with !)
-    let endpoint = '/agents/chat';
-    let body = {message: msg};
-    
-    if (msg.startsWith('!')) {
-      // Route to shell agent
-      endpoint = '/agents/chat';
-      body = {message: msg, agent: 'Shell'};
-    } else if (msg.toLowerCase().startsWith('launch ') || msg.toLowerCase().startsWith('open ')) {
-      // Route to shell agent for app launching
-      endpoint = '/agents/chat';
-      body = {message: msg, agent: 'Shell'};
-    } else if (msg.toLowerCase().startsWith('chain ')) {
-      // Route to shell agent for event chaining
-      endpoint = '/agents/chat';
-      body = {message: msg, agent: 'Shell'};
-    } else if (msg.toLowerCase().startsWith('analyze ') || msg.toLowerCase().startsWith('analyse ')) {
-      // Route to shell agent for command analysis
-      endpoint = '/agents/chat';
-      body = {message: msg, agent: 'Shell'};
-    }
-    
-    const r = await fetch(endpoint, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(body)
+    const r = await fetch('/agents/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({message: msg})
     });
     const d = await r.json();
     typing.remove();
-    
-    // Handle command output specially
-    if (d.message_type === 'command_output' || d.message_type === 'chain_output') {
-      addCommandOutput(d.content, d.metadata);
-    } else if (d.message_type === 'warning' && d.metadata?.requires_confirmation) {
-      addConfirmationPrompt(d.content, d.metadata.command);
-    } else {
-      addChatMsg(d.content, 'agent', d.sender);
-    }
-    
-    chatHistory.push({role:'user', content:msg}, {role:'assistant', content:d.content, sender:d.sender});
-
-    if (ws && ws.readyState === 1) {
-      ws.send(JSON.stringify({type:'set_state', state:'idle'}));
-      ws.send(JSON.stringify({type:'set_text', text: d.sender + ': ' + d.content.substring(0,100)}));
-    }
+    if (d.message_type==='command_output'||d.message_type==='chain_output') addCommandOutput(d.content, d.metadata);
+    else if (d.message_type==='warning'&&d.metadata?.requires_confirmation) addConfirmationPrompt(d.content, d.metadata.command);
+    else addChatMsg(d.content, 'agent', d.sender);
+    if (ws&&ws.readyState===1) ws.send(JSON.stringify({type:'set_state',state:'idle'}));
+    loadSuggestions();
   } catch(e) {
     typing.remove();
-    addChatMsg('Connection error. ELIOT core unreachable.', 'agent', 'SYSTEM');
-    if (ws && ws.readyState === 1) ws.send(JSON.stringify({type:'set_state', state:'idle'}));
+    addChatMsg('Connection error. Core unreachable.','agent','SYSTEM');
+    if (ws&&ws.readyState===1) ws.send(JSON.stringify({type:'set_state',state:'idle'}));
   }
 }
 
 function addChatMsg(text, type, sender) {
   const box = document.getElementById('chat-messages');
   const div = document.createElement('div');
-  div.className = 'chat-msg ' + type;
-  const senderLabel = type === 'user' ? 'YOU' : (sender || 'ELIOT').toUpperCase();
-  div.innerHTML = '<div class="msg-sender">' + senderLabel + '</div>' + escapeHtml(text);
-  box.appendChild(div);
-  scrollChat();
+  div.className = 'chat-msg '+type;
+  div.innerHTML = '<div class="msg-sender">'+(type==='user'?'YOU':(sender||'ELIOT').toUpperCase())+'</div>'+escapeHtml(text);
+  box.appendChild(div); scrollChat();
 }
 
 function addCommandOutput(text, metadata) {
   const box = document.getElementById('chat-messages');
   const div = document.createElement('div');
   div.className = 'chat-msg agent';
-  
-  const command = metadata?.command || '';
-  const returnCode = metadata?.return_code;
-  
-  let header = '<div class="msg-sender">SHELL</div>';
-  header += '<div style="color:var(--cyan);font-size:11px;margin-bottom:8px;">$ ' + escapeHtml(command) + '</div>';
-  
-  if (returnCode !== undefined) {
-    const color = returnCode === 0 ? 'var(--green)' : 'var(--red)';
-    header += '<div style="color:' + color + ';font-size:10px;margin-bottom:8px;">Exit code: ' + returnCode + '</div>';
+  const cmd = metadata?.command||'';
+  const rc = metadata?.return_code;
+  const analysis = metadata?.analysis;
+  let h = '<div class="msg-sender">SHELL</div>';
+  h += '<div style="color:var(--cyan);font-size:10px;margin-bottom:6px;">$ '+escapeHtml(cmd)+'</div>';
+  if (rc!==undefined) h += '<div style="color:'+(rc===0?'var(--green)':'var(--red)')+';font-size:9px;margin-bottom:6px;">exit: '+rc+'</div>';
+  if (analysis) {
+    div.innerHTML = h+'<div style="background:rgba(0,255,65,0.05);border:1px solid rgba(0,255,65,0.2);padding:8px;margin-bottom:6px;font-size:11px;line-height:1.5;">'+escapeHtml(analysis)+'</div>'+'<details style="font-size:10px;color:#555;"><summary style="cursor:pointer;color:#666;">Raw output</summary><pre style="margin:6px 0 0 0;white-space:pre-wrap;font-size:10px;max-height:150px;overflow-y:auto;">'+escapeHtml(text)+'</pre></details>';
+  } else {
+    div.innerHTML = h+'<pre style="margin:0;white-space:pre-wrap;font-size:11px;">'+escapeHtml(text)+'</pre>';
   }
-  
-  div.innerHTML = header + '<pre style="margin:0;white-space:pre-wrap;font-size:12px;line-height:1.4;">' + escapeHtml(text) + '</pre>';
-  box.appendChild(div);
-  scrollChat();
+  box.appendChild(div); scrollChat();
 }
 
 function addConfirmationPrompt(text, command) {
   const box = document.getElementById('chat-messages');
   const div = document.createElement('div');
-  div.className = 'chat-msg agent';
-  div.style.borderColor = 'var(--orange)';
-  
-  let html = '<div class="msg-sender" style="color:var(--orange);">WARNING</div>';
-  html += '<div style="color:var(--orange);margin-bottom:8px;">' + escapeHtml(text) + '</div>';
-  html += '<div style="display:flex;gap:8px;margin-top:8px;">';
-  html += '<button onclick="confirmCommand(\'' + escapeHtml(command) + '\')" style="background:var(--red);color:#000;border:none;padding:6px 12px;cursor:pointer;font-weight:bold;">Confirm</button>';
-  html += '<button onclick="cancelCommand()" style="background:#333;color:#fff;border:none;padding:6px 12px;cursor:pointer;">Cancel</button>';
-  html += '</div>';
-  
-  div.innerHTML = html;
-  box.appendChild(div);
-  scrollChat();
+  div.className = 'chat-msg agent'; div.style.borderColor = 'var(--orange)';
+  div.innerHTML = '<div class="msg-sender" style="color:var(--orange);">WARNING</div><div style="color:var(--orange);margin-bottom:6px;">'+escapeHtml(text)+'</div><div style="display:flex;gap:6px;"><button onclick="document.getElementById(\'chat-input\').value=\'confirm '+escapeHtml(command)+'\';sendChat()" style="background:var(--red);color:#000;border:none;padding:4px 10px;cursor:pointer;font-weight:bold;font-size:10px;">Confirm</button><button onclick="document.getElementById(\'chat-input\').value=\'cancel\';sendChat()" style="background:#333;color:#fff;border:none;padding:4px 10px;cursor:pointer;font-size:10px;">Cancel</button></div>';
+  box.appendChild(div); scrollChat();
 }
 
-function confirmCommand(command) {
-  document.getElementById('chat-input').value = 'confirm ' + command;
-  sendChat();
-}
+function scrollChat() { const b=document.getElementById('chat-messages'); requestAnimationFrame(()=>b.scrollTop=b.scrollHeight); }
+function escapeHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+document.getElementById('chat-input').addEventListener('keydown', e => { if(e.key==='Enter')sendChat(); });
 
-function cancelCommand() {
-  document.getElementById('chat-input').value = 'cancel';
-  sendChat();
-}
-
-function scrollChat() {
-  const box = document.getElementById('chat-messages');
-  requestAnimationFrame(() => box.scrollTop = box.scrollHeight);
-}
-
-function escapeHtml(t) {
-  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-}
-
-document.getElementById('chat-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') sendChat();
-});
-
-// ── Dashboard ──
-async function loadDashboard() {
+// ═══════════════════════════════════════════════════
+// Prompt Suggestions
+// ═══════════════════════════════════════════════════
+async function loadSuggestions() {
   try {
-    const r = await fetch('/system/info');
+    const r = await fetch('/tamagotchi/suggestions');
     const d = await r.json();
-    const totalMem = (d.hardware.memory_gb || 0).toFixed(1);
-    const usedMem = ((d.hardware.memory_gb || 0) - (d.metrics.memory_available_gb || 0)).toFixed(1);
-    document.getElementById('dash-hardware').innerHTML = `
-      <div class="metric-row"><span class="metric-label">Target</span><span class="metric-value">${d.hardware.target}</span></div>
-      <div class="metric-row"><span class="metric-label">CPU</span><span class="metric-value">${d.metrics.cpu_percent}%</span></div>
-      <div class="metric-row"><span class="metric-label">Memory</span><span class="metric-value">${d.metrics.memory_percent}% (${usedMem}GB / ${totalMem}GB)</span></div>
-      <div class="metric-row"><span class="metric-label">Disk</span><span class="metric-value">${d.metrics.disk_percent}%</span></div>
-      <div class="metric-row"><span class="metric-label">CUDA</span><span class="metric-value">${d.hardware.cuda_available ? 'Available' : 'N/A'}</span></div>
-    `;
-  } catch(e) {
-    document.getElementById('dash-hardware').innerHTML = '<span style="color:#555">Unable to fetch hardware info</span>';
-  }
-
-  try {
-    const r = await fetch('/health/detailed');
-    const d = await r.json();
-    let svcHtml = '';
-    for (const [k,v] of Object.entries(d.services || {})) {
-      svcHtml += `<div class="metric-row"><span class="metric-label">${k}</span><span class="metric-value" style="color:${v==='healthy'?'var(--green)':'var(--red)'}">${v}</span></div>`;
-    }
-    document.getElementById('dash-services').innerHTML = svcHtml || '<span style="color:#555">No service data</span>';
-  } catch(e) {}
-
-  try {
-    const r = await fetch('/agents/');
-    const agents = await r.json();
-    let agentHtml = '';
-    agents.forEach(a => {
-      agentHtml += `<div class="metric-row"><span class="metric-label">${a.name}</span><span class="metric-value">${a.tasks_completed} tasks | ${a.errors} errors | ${a.state}</span></div>`;
-    });
-    document.getElementById('dash-agents').innerHTML = agentHtml;
+    const box = document.getElementById('chat-suggestions');
+    box.innerHTML = (d.suggestions||[]).map(s =>
+      '<div class="suggest-chip" onclick="document.getElementById(\'chat-input\').value=\''+escapeHtml(s.text).replace(/'/g,"\\'")+'\';sendChat()">'+escapeHtml(s.text)+'</div>'
+    ).join('');
   } catch(e) {}
 }
 
-// ── Knowledge ──
-async function loadKnowledge() {
+// ═══════════════════════════════════════════════════
+// Network Topology (SVG)
+// ═══════════════════════════════════════════════════
+async function loadTopology() {
   try {
-    const r = await fetch('/knowledge/stats');
-    const d = await r.json();
-    document.getElementById('kb-stats').innerHTML = `
-      <div class="metric-row"><span class="metric-label">Documents</span><span class="metric-value">${d.total_documents}</span></div>
-      <div class="metric-row"><span class="metric-label">Embedding Dimensions</span><span class="metric-value">${d.embedding_dimensions}</span></div>
-      <div class="metric-row"><span class="metric-label">Total Ingested</span><span class="metric-value">${d.total_ingested}</span></div>
-    `;
-  } catch(e) {
-    document.getElementById('kb-stats').innerHTML = '<span style="color:#555">Knowledge engine unavailable</span>';
-  }
+    const r = await fetch('/sentient/topology');
+    const topo = await r.json();
+    renderTopology(topo);
+  } catch(e) {}
 }
 
-async function searchKB() {
-  const q = document.getElementById('kb-input').value.trim();
-  if (!q) return;
-  const box = document.getElementById('kb-results');
-  box.innerHTML = '<span style="color:#555">Searching...</span>';
-  try {
-    const r = await fetch('/knowledge/search?q=' + encodeURIComponent(q));
-    const d = await r.json();
-    if (!d.results || d.results.length === 0) {
-      box.innerHTML = '<span style="color:#555">No results found</span>';
-      return;
-    }
-    box.innerHTML = d.results.map(r => `
-      <div class="kb-result">
-        <span class="kb-source">${r.source || 'unknown'}</span>
-        <span class="kb-score">score: ${(r.score||0).toFixed(3)}</span>
-        <div class="kb-text">${escapeHtml((r.text||'').substring(0, 300))}...</div>
-      </div>
-    `).join('');
-  } catch(e) {
-    box.innerHTML = '<span style="color:var(--red)">Search failed</span>';
-  }
+function renderTopology(topo) {
+  const svg = document.getElementById('net-svg');
+  if (!svg || !topo.nodes) return;
+  const w = svg.parentElement.clientWidth || 600;
+  const h = svg.parentElement.clientHeight || 400;
+  let html = '';
+
+  // Layout: force-directed simple
+  const nodes = topo.nodes.map((n,i) => {
+    const angle = (i / topo.nodes.length) * Math.PI * 2;
+    const r = Math.min(w,h) * 0.35;
+    return {...n, x: w/2 + Math.cos(angle)*r*(0.5+Math.random()*0.5), y: h/2 + Math.sin(angle)*r*(0.5+Math.random()*0.5)};
+  });
+
+  // Edges
+  (topo.edges||[]).forEach(e => {
+    const s = nodes.find(n=>n.id===e.source);
+    const t = nodes.find(n=>n.id===e.target);
+    if (s&&t) html += '<line class="net-edge active" x1="'+s.x+'" y1="'+s.y+'" x2="'+t.x+'" y2="'+t.y+'"/>';
+  });
+
+  // Nodes
+  const colors = {self:'var(--green)',router:'var(--cyan)',server:'var(--orange)',workstation:'var(--text)',iot:'#888',wifi_ap:'#ff00ff',unknown:'#444'};
+  const sevColors = {none:'var(--text)',low:'#888',medium:'var(--orange)',high:'var(--red)',critical:'#ff0040'};
+  nodes.forEach(n => {
+    const fill = n.type==='self'?'var(--green)':(sevColors[n.severity]||colors[n.type]||'#444');
+    html += '<g class="net-node">';
+    html += '<circle cx="'+n.x+'" cy="'+n.y+'" r="16" fill="'+fill+'" opacity="0.2" stroke="'+fill+'" stroke-width="1.5"/>';
+    html += '<text x="'+n.x+'" y="'+(n.y+32)+'" text-anchor="middle" fill="'+fill+'">'+escapeHtml(n.label||n.ip)+'</text>';
+    if (n.services) html += '<text x="'+n.x+'" y="'+(n.y+42)+'" text-anchor="middle" fill="#555" font-size="8">'+n.services+' svc</text>';
+    html += '</g>';
+  });
+
+  svg.innerHTML = html;
 }
 
-// ── Workflows ──
+// ═══════════════════════════════════════════════════
+// Devices & WiFi
+// ═══════════════════════════════════════════════════
+async function loadDevices() {
+  try {
+    const r = await fetch('/sentient/devices');
+    const d = await r.json();
+    const box = document.getElementById('device-list');
+    if (!d.devices||d.devices.length===0) { box.innerHTML='<span style="color:#555">No devices discovered yet</span>'; return; }
+    box.innerHTML = d.devices.map(dev => {
+      const sevColor = dev.vulnerabilities&&dev.vulnerabilities.length?'var(--red)':'var(--green)';
+      return '<div class="metric-row"><span class="metric-label">'+escapeHtml(dev.ip)+(dev.hostname?' ('+escapeHtml(dev.hostname)+')':'')+'</span><span class="metric-value" style="color:'+sevColor+'">'+dev.device_type+' | '+dev.services.length+' svc</span></div>';
+    }).join('');
+  } catch(e) {}
+}
+
+async function loadWiFi() {
+  try {
+    const r = await fetch('/sentient/wifi');
+    const d = await r.json();
+    const box = document.getElementById('wifi-list');
+    if (!d.access_points||d.access_points.length===0) { box.innerHTML='<span style="color:#555">No APs found</span>'; return; }
+    box.innerHTML = d.access_points.map(ap =>
+      '<div class="metric-row"><span class="metric-label">'+escapeHtml(ap.ssid||ap.bssid)+'</span><span class="metric-value">'+ap.signal+'dBm | Ch'+ap.channel+'</span></div>'
+    ).join('');
+  } catch(e) {}
+}
+
+async function triggerScan() {
+  document.getElementById('scan-status').textContent='Scanning...';
+  try {
+    const r = await fetch('/sentient/scan',{method:'POST'});
+    const d = await r.json();
+    document.getElementById('scan-status').textContent='Found '+d.hosts_found+' hosts, '+d.wifi_aps+' APs in '+d.duration_seconds+'s';
+    loadTopology(); loadDevices(); loadWiFi();
+  } catch(e) { document.getElementById('scan-status').textContent='Scan failed'; }
+}
+
+// ═══════════════════════════════════════════════════
+// Workflows
+// ═══════════════════════════════════════════════════
 async function loadWorkflows() {
   try {
     const r = await fetch('/agents/workflows/list');
     const d = await r.json();
     const box = document.getElementById('workflows-list');
     let html = '';
-    for (const [name, wf] of Object.entries(d.workflows || {})) {
-      html += `
-        <div class="workflow-card" onclick="runWorkflow('${name}')">
-          <h4>${name}</h4>
-          <p>${wf.description || ''}</p>
-          <div class="wf-agents">
-            ${(wf.agents || []).map(a => '<span class="wf-agent-tag">'+a+'</span>').join('')}
-          </div>
-        </div>
-      `;
+    for (const [name, wf] of Object.entries(d.workflows||{})) {
+      html += '<div class="workflow-card" onclick="this.classList.toggle(\'expanded\')">';
+      html += '<h4>'+name+'</h4><p>'+(wf.description||'')+'</p>';
+      html += '<div class="wf-agents">'+(wf.agents||[]).map(a=>'<span class="wf-agent-tag">'+a+'</span>').join('')+'</div>';
+      html += '<div class="wf-form">';
+      html += '<label>Target IP / CIDR</label><input id="wf-target-'+name+'" placeholder="e.g. 192.168.1.1">';
+      html += '<label>Custom prompt (optional)</label><input id="wf-prompt-'+name+'" placeholder="Override default prompt...">';
+      html += '<button class="wf-run-btn" onclick="event.stopPropagation();runWFWithTarget(\''+name+'\')">Execute</button>';
+      html += '</div></div>';
     }
-    box.innerHTML = html || '<span style="color:#555">No workflows defined</span>';
-  } catch(e) {
-    document.getElementById('workflows-list').innerHTML = '<span style="color:#555">Unable to load workflows</span>';
-  }
-}
-
-async function runWorkflow(name) {
-  const card = document.getElementById('wf-run-card');
-  const output = document.getElementById('wf-output');
-  card.style.display = '';
-  output.innerHTML = '<span style="color:var(--cyan)">Running workflow: ' + name + '...</span>';
-
-  if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({type:'set_state', state:'thinking'}));
-  }
-
-  try {
-    const prompt = prompt_for_workflow(name);
-    const r = await fetch('/agents/workflow/' + name, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({message: prompt})
-    });
-    const d = await r.json();
-    output.innerHTML = '<div style="color:var(--green);margin-bottom:8px;">Workflow complete.</div>' +
-      '<div style="color:var(--cyan);font-size:10px;margin-bottom:8px;">Agent: ' + d.sender + '</div>' +
-      '<div>' + escapeHtml(d.content) + '</div>';
-    if (ws && ws.readyState === 1) ws.send(JSON.stringify({type:'set_state', state:'idle'}));
-  } catch(e) {
-    output.innerHTML = '<span style="color:var(--red)">Workflow timed out or failed. Workflows with many agents may take several minutes.</span>';
-    if (ws && ws.readyState === 1) ws.send(JSON.stringify({type:'set_state', state:'idle'}));
-  }
-}
-
-function prompt_for_workflow(name) {
-  const prompts = {
-    recon: 'Perform reconnaissance analysis on common network security posture',
-    vuln_assessment: 'Assess vulnerability risks of running outdated OpenSSL versions',
-    incident_response: 'Analyze indicators of compromise for a phishing attack scenario',
-    pentest: 'Plan a penetration test for a web application with login functionality',
-  };
-  return prompts[name] || 'Execute workflow';
-}
-
-// ── Home Status ──
-async function loadHomeStatus() {
-  try {
-    const r = await fetch('/health/detailed');
-    const d = await r.json();
-    document.getElementById('home-status').innerHTML = `
-      <div class="metric-row"><span class="metric-label">Version</span><span class="metric-value">${d.version}</span></div>
-      <div class="metric-row"><span class="metric-label">Status</span><span class="metric-value" style="color:var(--green)">${d.status}</span></div>
-      <div class="metric-row"><span class="metric-label">Uptime</span><span class="metric-value">${formatUptime(d.uptime_seconds)}</span></div>
-    `;
-    document.getElementById('status-text').textContent = avatarState.toUpperCase();
+    box.innerHTML = html || '<span style="color:#555">No workflows</span>';
   } catch(e) {}
 }
 
-function formatUptime(s) {
-  if (!s) return 'N/A';
-  const h = Math.floor(s/3600);
-  const m = Math.floor((s%3600)/60);
-  return h > 0 ? h + 'h ' + m + 'm' : m + 'm';
+async function runWFWithTarget(name) {
+  const target = document.getElementById('wf-target-'+name)?.value||'';
+  const prompt = document.getElementById('wf-prompt-'+name)?.value||'';
+  const card = document.getElementById('wf-run-card');
+  const output = document.getElementById('wf-output');
+  card.style.display=''; output.innerHTML='<span style="color:var(--cyan)">Running '+name+'...</span>';
+  if (ws&&ws.readyState===1) ws.send(JSON.stringify({type:'set_state',state:'thinking'}));
+  try {
+    const body = {message: prompt||('Execute workflow on target: '+target)};
+    if (target) body.metadata = {target};
+    const r = await fetch('/agents/workflow/'+name,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d = await r.json();
+    output.innerHTML='<div style="color:var(--green);margin-bottom:6px;">Complete</div><pre style="margin:0;white-space:pre-wrap;font-size:11px;max-height:400px;overflow-y:auto;">'+escapeHtml(d.content)+'</pre>';
+    if (ws&&ws.readyState===1) ws.send(JSON.stringify({type:'set_state',state:'idle'}));
+  } catch(e) { output.innerHTML='<span style="color:var(--red)">Failed or timed out</span>'; if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'set_state',state:'idle'})); }
 }
 
+async function runPentest() {
+  const target = document.getElementById('pentest-target').value.trim();
+  if (!target) { document.getElementById('pentest-target').style.borderColor='var(--red)'; return; }
+  document.getElementById('pentest-target').style.borderColor='var(--border)';
+  const card = document.getElementById('wf-run-card');
+  const output = document.getElementById('wf-output');
+  card.style.display='';
+  output.innerHTML='<div style="color:var(--red);margin-bottom:6px;">Pentesting '+escapeHtml(target)+'...</div><div style="color:#555;font-size:10px;">Recon → Scan → Web Scan → Analyze → Exploit → Report</div><div id="pentest-progress" style="margin-top:6px;"></div>';
+  if (ws&&ws.readyState===1) { ws.send(JSON.stringify({type:'set_state',state:'thinking'})); ws.send(JSON.stringify({type:'set_text',text:'Pentesting '+target})); }
+  try {
+    const r = await fetch('/agents/pentest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target})});
+    const d = await r.json();
+    output.innerHTML='<div style="color:var(--green);margin-bottom:6px;font-family:Orbitron;font-size:10px;letter-spacing:2px;">PENTEST COMPLETE</div><div style="color:var(--cyan);font-size:9px;margin-bottom:10px;">Target: '+escapeHtml(target)+' | Steps: '+(d.metadata?.steps_completed||[]).join(', ')+'</div><pre style="margin:0;white-space:pre-wrap;font-size:11px;max-height:400px;overflow-y:auto;">'+escapeHtml(d.content)+'</pre>';
+    if (ws&&ws.readyState===1) ws.send(JSON.stringify({type:'set_state',state:'idle'}));
+  } catch(e) { output.innerHTML='<span style="color:var(--red)">Timed out or failed</span>'; if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'set_state',state:'idle'})); }
+}
+
+// ═══════════════════════════════════════════════════
+// Tamagotchi Page
+// ═══════════════════════════════════════════════════
+async function loadTamagotchi() {
+  try {
+    const r = await fetch('/tamagotchi/notifications');
+    const d = await r.json();
+    const box = document.getElementById('notif-list');
+    const pending = (d.notifications||[]).filter(n=>n.needs_auth&&n.auth_status==='pending');
+    document.getElementById('notif-badge').style.display = pending.length>0?'inline':'none';
+    document.getElementById('notif-badge').textContent = pending.length;
+
+    if (!d.notifications||d.notifications.length===0) { box.innerHTML='<span style="color:#555">No notifications</span>'; return; }
+    box.innerHTML = d.notifications.reverse().map(n => {
+      const cls = n.auth_status||'info';
+      let actions = '';
+      if (n.needs_auth&&n.auth_status==='pending') {
+        actions = '<div class="notif-actions"><button class="notif-btn approve" onclick="authNotif(\''+n.id+'\',true)">Approve</button><button class="notif-btn deny" onclick="authNotif(\''+n.id+'\',false)">Deny</button></div>';
+      }
+      return '<div class="notif-item '+cls+'"><div><div class="notif-title">'+escapeHtml(n.title)+'</div><div class="notif-meta">'+escapeHtml(n.message)+'</div></div>'+actions+'</div>';
+    }).join('');
+  } catch(e) {}
+
+  try {
+    const r = await fetch('/tamagotchi/exploits');
+    const d = await r.json();
+    const box = document.getElementById('exploit-queue');
+    if (!d.exploits||d.exploits.length===0) { box.innerHTML='<span style="color:#555">No exploits queued</span>'; return; }
+    box.innerHTML = d.exploits.map(e =>
+      '<div class="metric-row"><span class="metric-label">'+escapeHtml(e.target)+' — '+escapeHtml(e.exploit_name||e.command?.substring(0,40))+'</span><span class="metric-value" style="color:'+(e.auth_status==='approved'?'var(--green)':'var(--orange)')+'">'+e.auth_status+'</span></div>'
+    ).join('');
+  } catch(e) {}
+
+  try {
+    const r = await fetch('/tamagotchi/knowledge');
+    const d = await r.json();
+    document.getElementById('knowledge-stats').innerHTML = Object.entries(d.stats||{}).map(([k,v])=>'<span class="metric-row"><span class="metric-label">'+k+'</span><span class="metric-value">'+v+'</span></span>').join('');
+  } catch(e) {}
+}
+
+async function authNotif(id, approve) {
+  const endpoint = approve ? '/tamagotchi/authorize' : '/tamagotchi/deny';
+  await fetch(endpoint, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notification_id:id})});
+  loadTamagotchi();
+}
+
+// ═══════════════════════════════════════════════════
+// Dashboard
+// ═══════════════════════════════════════════════════
+async function loadDashboard() {
+  try {
+    const r = await fetch('/system/info');
+    const d = await r.json();
+    const totalMem = (d.hardware.memory_gb||0).toFixed(1);
+    const usedMem = ((d.hardware.memory_gb||0)-(d.metrics.memory_available_gb||0)).toFixed(1);
+    document.getElementById('dash-hardware').innerHTML = '<div class="metric-row"><span class="metric-label">Target</span><span class="metric-value">'+d.hardware.target+'</span></div><div class="metric-row"><span class="metric-label">CPU</span><span class="metric-value">'+d.metrics.cpu_percent+'%</span></div><div class="metric-row"><span class="metric-label">Memory</span><span class="metric-value">'+d.metrics.memory_percent+'% ('+usedMem+'/'+totalMem+'GB)</span></div><div class="metric-row"><span class="metric-label">Disk</span><span class="metric-value">'+d.metrics.disk_percent+'%</span></div><div class="metric-row"><span class="metric-label">CUDA</span><span class="metric-value">'+(d.hardware.cuda_available?'Available':'N/A')+'</span></div>';
+  } catch(e) {}
+  try {
+    const r = await fetch('/health/detailed');
+    const d = await r.json();
+    let svc = '';
+    for (const [k,v] of Object.entries(d.services||{})) svc += '<div class="metric-row"><span class="metric-label">'+k+'</span><span class="metric-value" style="color:'+(v==='healthy'?'var(--green)':'var(--red)')+'">'+v+'</span></div>';
+    document.getElementById('dash-services').innerHTML = svc||'<span style="color:#555">No data</span>';
+  } catch(e) {}
+  try {
+    const r = await fetch('/agents/');
+    const agents = await r.json();
+    document.getElementById('dash-agents').innerHTML = agents.map(a=>'<div class="metric-row"><span class="metric-label">'+a.name+'</span><span class="metric-value">'+a.tasks_completed+' tasks | '+a.state+'</span></div>').join('');
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════
+// Stealth Badge
+// ═══════════════════════════════════════════════════
+async function loadStealth() {
+  try {
+    const r = await fetch('/tamagotchi/status');
+    const d = await r.json();
+    // Update stealth badge from sentient or tamagotchi status
+  } catch(e) {}
+  try {
+    const r2 = await fetch('/sentient/status');
+    const d2 = await r2.json();
+    const badge = document.getElementById('stealth-badge');
+    badge.textContent = 'STEALTH ACTIVE';
+    badge.className = 'stealth-badge';
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════
+// Recent Activity Feed
+// ═══════════════════════════════════════════════════
+async function loadRecentActivity() {
+  try {
+    const r = await fetch('/sentient/events?since='+(Date.now()/1000-3600));
+    const d = await r.json();
+    const box = document.getElementById('recent-activity');
+    if (!d.events||d.events.length===0) { box.innerHTML='<span style="color:#555">No recent activity</span>'; return; }
+    box.innerHTML = d.events.slice(-15).reverse().map(e => {
+      const t = new Date(e.timestamp*1000).toLocaleTimeString();
+      return '<div style="padding:3px 0;border-bottom:1px solid #0d0d14;"><span style="color:#555">'+t+'</span> <span style="color:var(--cyan)">'+e.type+'</span></div>';
+    }).join('');
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════
+// Page Router
+// ═══════════════════════════════════════════════════
 function loadPageData(name) {
-  if (name === 'dashboard') loadDashboard();
-  if (name === 'knowledge') loadKnowledge();
-  if (name === 'workflows') loadWorkflows();
-  if (name === 'home') loadHomeStatus();
+  if (name==='home') { loadRecentActivity(); }
+  if (name==='network') { loadTopology(); loadDevices(); loadWiFi(); }
+  if (name==='chat') { loadSuggestions(); }
+  if (name==='workflows') { loadWorkflows(); }
+  if (name==='tamagotchi') { loadTamagotchi(); }
+  if (name==='system') { loadDashboard(); }
 }
 
-// ── Init ──
+// ═══════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════
 function initApp() {
-  connectAvatarWS();
-  loadHomeStatus();
-  setInterval(loadHomeStatus, 15000);
+  connectWS();
+  initMatrix();
+  updateRobot('idle','systems online');
+  setTypingText('root@eliot:~# echo "Mr. Robot is watching..."');
+  loadStealth();
+  loadRecentActivity();
+  loadSuggestions();
+  setInterval(loadRecentActivity, 30000);
+  setInterval(loadStealth, 60000);
+  setInterval(()=>{try{fetch('/tamagotchi/notifications').then(r=>r.json()).then(d=>{const p=(d.notifications||[]).filter(n=>n.needs_auth&&n.auth_status==='pending');document.getElementById('notif-badge').style.display=p.length>0?'inline':'none';document.getElementById('notif-badge').textContent=p.length;});}catch(e){}}, 15000);
 }
 </script>
 </body>
