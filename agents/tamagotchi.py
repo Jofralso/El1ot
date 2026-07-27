@@ -396,7 +396,7 @@ class TamagotchiEngine:
         self._target_queue: List[Dict[str, Any]] = []
         self._reports: List[Dict[str, Any]] = []
         # Persistence
-        self._data_dir = Path("/home/jetson/El1ot/data/tamagotchi")
+        self._data_dir = Path(os.environ.get("ELIOT_DATA_DIR", "/app/data")) / "tamagotchi"
         self._data_dir.mkdir(parents=True, exist_ok=True)
         self._load_state()
         self._seed_knowledge()
@@ -2868,7 +2868,7 @@ class TamagotchiEngine:
                 cycle_elapsed = time.time() - cycle_start
                 self._think(f"Cycle complete ({int(cycle_elapsed)}s). {self._stats['devices_found']} devices, {self._stats['vulns_found']} vulns, Level {self._level}.")
                 self._phase_progress = {"phase": "idle", "progress": 100}
-                self._index_all_findings()
+                await self._index_all_findings()
                 self.save_state()
 
             except asyncio.CancelledError:

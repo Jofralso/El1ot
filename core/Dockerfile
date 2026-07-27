@@ -36,6 +36,9 @@ COPY --from=builder /build/requirements.txt .
 # Install Python packages from wheels
 RUN pip install --no-cache /wheels/*
 
+# Install ollama separately (may have httpx version conflicts with pinned deps)
+RUN pip install --no-cache ollama>=0.4.0 || true
+
 # Copy application modules
 COPY core /app/core
 COPY agents /app/agents

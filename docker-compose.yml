@@ -19,6 +19,8 @@ services:
       - CHROMADB_PORT=8000
       - MQTT_HOST=mqtt
       - MQTT_PORT=1883
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_MODEL=qwen2.5-coder-3b
     volumes:
       - ./core:/app/core
       - ./agents:/app/agents
@@ -34,13 +36,15 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
       - eliot-models:/app/models
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
     networks:
       - eliot-network
     depends_on:

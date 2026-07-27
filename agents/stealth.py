@@ -100,6 +100,9 @@ class StealthEngine:
         self._jitter_base = 0.5
         self._active = True
         self._wifi_interface: str = ""  # detected at runtime
+        self._original_macs: Dict[str, str] = {}  # interface -> original MAC
+        self._decoy_macs: Dict[str, str] = {}  # interface -> current decoy MAC
+        self._jetson_interfaces: List[str] = ["wlP1p1s0", "eth0"]  # built-in interfaces to protect
 
     @property
     def active(self) -> bool:
@@ -129,6 +132,9 @@ class StealthEngine:
             "original_mac": self._original_mac,
             "scan_count": self._scan_count,
             "last_scan_time": self._last_scan_time,
+            "jetson_original_macs": dict(self._original_macs),
+            "jetson_decoy_macs": dict(self._decoy_macs),
+            "jetson_protected_interfaces": self._jetson_interfaces,
         }
 
     # ── MAC Address Management ──────────────────────────────
@@ -242,6 +248,90 @@ class StealthEngine:
         self._current_mac = self._original_mac
         self._mac_randomized = False
         logger.info(f"MAC restored: {self._original_mac}")
+        return True
+
+    # ── Jetson Anonymity: Auto MAC Rotation ────────────────
+
+    async def auto_rotate_jetson(self) -> Dict[str, bool]:
+        """Rotate MAC addresses on all Jetson built-in interfaces for anonymity.
+        Called at startup. External WiFi adapter is NOT rotated (it's the attack interface).
+        Returns dict of interface -> success.
+        """
+        results = {}
+        for iface in self._jetson_interfaces:
+            exists, _, rc = await self._run_cmd(f"test -d /sys/class/net/{iface} && echo 1 || echo 0")
+            if rc != 0 or "0" in exists.strip():
+                continue
+            original = await self._get_mac(iface)
+            if original:
+                self._original_macs[iface] = original
+
+            octets = [random.randint(0x00, 0xFF) for _ in range(6)]
+            octets[0] = (octets[0] & 0xFE) | 0x02
+            random_mac = ":".join(f"{b:02x}" for b in octets)
+
+            cmds = [
+                f"echo jetson | sudo -S ip link set {iface} down",
+                f"echo jetson | sudo -S ip link set {iface} address {random_mac}",
+                f"echo jetson | sudo -S ip link set {iface} up",
+            ]
+            ok = True
+            for cmd in cmds:
+                _, stderr, rc = await self._run_cmd(cmd)
+                if rc != 0:
+                    ok = False
+                    break
+
+            if ok:
+                self._decoy_macs[iface] = random_mac
+                logger.info(f"[ANONYMITY] MAC rotated {iface}: {original} -> {random_mac}")
+                results[iface] = True
+            else:
+                logger.warning(f"[ANONYMITY] Failed to rotate MAC on {iface}")
+                results[iface] = False
+
+        return results
+
+    async def restore_all_macs(self) -> Dict[str, bool]:
+        """Restore original MAC addresses on all Jetson interfaces. Called at shutdown."""
+        results = {}
+        for iface, original in self._original_macs.items():
+            cmds = [
+                f"echo jetson | sudo -S ip link set {iface} down",
+                f"echo jetson | sudo -S ip link set {iface} address {original}",
+                f"echo jetson | sudo -S ip link set {iface} up",
+            ]
+            for cmd in cmds:
+                await self._run_cmd(cmd)
+            self._decoy_macs.pop(iface, None)
+            logger.info(f"[ANONYMITY] MAC restored {iface}: {original}")
+            results[iface] = True
+        return results
+
+    async def rotate_jetson_mac(self, iface: str) -> bool:
+        """Re-randomize a single Jetson interface (for periodic rotation)."""
+        original = self._original_macs.get(iface)
+        if not original:
+            original = await self._get_mac(iface)
+            if original:
+                self._original_macs[iface] = original
+
+        octets = [random.randint(0x00, 0xFF) for _ in range(6)]
+        octets[0] = (octets[0] & 0xFE) | 0x02
+        random_mac = ":".join(f"{b:02x}" for b in octets)
+
+        cmds = [
+            f"echo jetson | sudo -S ip link set {iface} down",
+            f"echo jetson | sudo -S ip link set {iface} address {random_mac}",
+            f"echo jetson | sudo -S ip link set {iface} up",
+        ]
+        for cmd in cmds:
+            _, stderr, rc = await self._run_cmd(cmd)
+            if rc != 0:
+                return False
+
+        self._decoy_macs[iface] = random_mac
+        logger.info(f"[ANONYMITY] MAC rotated {iface}: {self._decoy_macs.get(iface, '?')} -> {random_mac}")
         return True
 
     # ── Scan Command Building ────────────────────────────────

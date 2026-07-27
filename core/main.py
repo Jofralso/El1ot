@@ -117,6 +117,10 @@ async def lifespan(app: FastAPI):
         from agents.stealth import get_stealth_engine
         stealth = get_stealth_engine()
         stealth.active = settings.stealth_active
+        # Auto-rotate MAC on Jetson built-in interfaces for anonymity
+        rotate_results = await stealth.auto_rotate_jetson()
+        if rotate_results:
+            logger.info(f"[ANONYMITY] MAC rotation: {rotate_results}")
         logger.info(f"Stealth engine initialized (active={stealth.active}, profile={stealth.profile.value})")
     except Exception as e:
         logger.warning(f"Stealth engine init skipped: {e}")
@@ -149,6 +153,16 @@ async def lifespan(app: FastAPI):
 
     # ── Shutdown ──────────────────────────────────────────────
     logger.info("ELIOT CORE SERVICE SHUTTING DOWN")
+
+    # Restore MAC addresses on shutdown
+    try:
+        from agents.stealth import get_stealth_engine
+        stealth = get_stealth_engine()
+        restore_results = await stealth.restore_all_macs()
+        if restore_results:
+            logger.info(f"[ANONYMITY] MAC restored on shutdown: {restore_results}")
+    except Exception:
+        pass
 
     if tamagotchi_engine:
         try:
