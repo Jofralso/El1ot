@@ -1703,10 +1703,10 @@ function updateMapStatusOnly() {
     <span style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${thought}</span>`;
   }
   // Also update device table
-  let rows = devs.map(d => '<tr onclick="showDeviceDetail(\\''+d.ip+'\\')" style="cursor:pointer"><td><code style="color:var(--accent)">'+d.ip+'</code></td><td>'+(d.hostname||'-')+'</td><td>'+(d.mac||'-')+'</td><td>'+(d.os_guess||'-')+'</td><td><span class="sev sev-'+(d.type==='router'?'high':'info')+'">'+(d.type||'?')+'</span></td><td>'+((d.services||[]).length)+'</td></tr>').join('');
+  let rows = devs.map(d => `<tr onclick="showDeviceDetail('${d.ip}')" style="cursor:pointer"><td><code style="color:var(--accent)">${d.ip}</code></td><td>${d.hostname||'-'}</td><td>${d.mac||'-'}</td><td>${d.os_guess||'-'}</td><td><span class="sev sev-${d.type==='router'?'high':'info'}">${d.type||'?'}</span></td><td>${(d.services||[]).length}</td></tr>`).join('');
   if(!rows) rows = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No devices discovered</td></tr>';
   const tbl = document.getElementById('map-table');
-  if(tbl) tbl.innerHTML = '<div class="card"><div class="card-header">Device Inventory <span style="color:var(--text-muted);font-weight:400;font-size:12px">'+devs.length+' hosts</span></div><div class="card-body table-wrap"><table><thead><tr><th>IP</th><th>Hostname</th><th>MAC</th><th>OS</th><th>Type</th><th>Services</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+  if(tbl) tbl.innerHTML = `<div class="card"><div class="card-header">Device Inventory <span style="color:var(--text-muted);font-weight:400;font-size:12px">${devs.length} hosts</span></div><div class="card-body table-wrap"><table><thead><tr><th>IP</th><th>Hostname</th><th>MAC</th><th>OS</th><th>Type</th><th>Services</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 setInterval(async()=>{
