@@ -525,10 +525,47 @@ class TamagotchiEngine:
         if knowledge_file.exists():
             try:
                 with open(knowledge_file, 'r') as f:
-                    self._knowledge_log = json.load(f)
-                logger.info(f"Loaded {len(self._knowledge_log)} knowledge entries")
+                    raw = json.load(f)
+                # Deduplicate: keep last entry per category+key
+                seen = {}
+                for entry in raw:
+                    ck = (entry.get("category"), entry.get("key"))
+                    seen[ck] = entry
+                self._knowledge_log = list(seen.values())
+                logger.info(f"Loaded {len(self._knowledge_log)} knowledge entries (deduped from {len(raw)})")
             except Exception as e:
                 logger.error(f"Failed to load knowledge: {e}")
+
+        # Load persisted devices
+        devices_file = self._data_dir / "devices.json"
+        if devices_file.exists():
+            try:
+                from agents.sentient import Device, Service, DeviceType
+                with open(devices_file, 'r') as f:
+                    devs = json.load(f)
+                for ip, d in devs.items():
+                    dev = Device(ip=ip, hostname=d.get("hostname", ""))
+                    if "services" in d:
+                        for s in d["services"]:
+                            if isinstance(s, dict):
+                                svc = Service(
+                                    name=s.get("name", "unknown"),
+                                    port=s.get("port", 0),
+                                    version=s.get("version", ""),
+                                    product=s.get("product", ""),
+                                )
+                                dev.services.append(svc)
+                    if "os_guess" in d:
+                        dev.os_guess = d["os_guess"]
+                    if "device_type" in d:
+                        try:
+                            dev.device_type = DeviceType(d.get("device_type", "unknown"))
+                        except ValueError:
+                            pass
+                    self._devices[ip] = dev
+                logger.info(f"Loaded {len(self._devices)} persisted devices")
+            except Exception as e:
+                logger.error(f"Failed to load devices: {e}")
 
         # Load event log
         events_file = self._data_dir / "events.json"
@@ -3109,6 +3146,20 @@ class TamagotchiEngine:
         except Exception as e:
             logger.error(f"Failed to save state: {e}")
 
+        # Persist devices so we don't re-discover and re-award XP
+        try:
+            devices_file = self._data_dir / "devices.json"
+            devs = {}
+            for ip, dev in self._devices.items():
+                if hasattr(dev, 'to_dict'):
+                    devs[ip] = dev.to_dict()
+                elif isinstance(dev, dict):
+                    devs[ip] = dev
+            with open(devices_file, 'w') as f:
+                json.dump(devs, f, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to save devices: {e}")
+
         try:
             knowledge_file = self._data_dir / "knowledge.json"
             with open(knowledge_file, 'w') as f:
@@ -3612,6 +3663,20 @@ class TamagotchiEngine:
         return False
 
     # ── Knowledge Growth ──────────────────────────────────────
+
+    def _is_known_finding(self, category: str, key: str) -> bool:
+        """Check if a finding already exists in the knowledge log."""
+        for entry in self._knowledge_log:
+            if entry.get("category") == category and entry.get("key") == key:
+                return True
+        return False
+
+    def _is_known_notification(self, target: str, title_contains: str) -> bool:
+        """Check if a notification already exists for this target with matching title."""
+        for n in self._notifications:
+            if n.target == target and title_contains.lower() in n.title.lower():
+                return True
+        return False
 
     def log_knowledge(self, category: str, key: str, value: Any, source: str = ""):
         """Log a piece of knowledge for future reference. Updates existing entry if same category+key."""
@@ -4145,7 +4210,9 @@ class TamagotchiEngine:
                                 "extra_ports": new_ports,
                                 "total_ports": len(extra_ports),
                             }, source="fast_scan")
-                            self.award_xp("full_port_scan", detail=f"{ip}: {len(extra_ports)} ports found")
+                            if not self._is_known_finding("deep_port_scan", f"done_{ip}"):
+                                self.award_xp("full_port_scan", detail=f"{ip}: {len(extra_ports)} ports found")
+                                self.log_knowledge("deep_port_scan", f"done_{ip}", {"ip": ip}, source="fast_scan")
 
                 if new_devices > 0:
                     self._streaks["devices"] = self._streaks.get("devices", 0) + new_devices
@@ -4183,12 +4250,16 @@ class TamagotchiEngine:
                     vulns = await self._fast_vuln_scan(ip)
                     for v in vulns:
                         if v.get("confirmed"):
-                            self._create_vuln_notification(
-                                ip, int(v.get("port", 0)), "nmap_vuln", "high",
-                                f"Confirmed vulnerability on {ip}:{v.get('port', '?')}"
-                            )
-                            self.award_xp("vuln_validated", detail=f"{ip}:{v.get('port', '?')} {v.get('name', 'vuln')}")
-                            self._stats["vulns_validated"] = self._stats.get("vulns_validated", 0) + 1
+                            port_num = int(v.get("port", 0))
+                            vuln_key = f"vuln_validated_{ip}_{port_num}_{v.get('name', '')}"
+                            if not self._is_known_finding("vuln_validated", vuln_key):
+                                self._create_vuln_notification(
+                                    ip, port_num, "nmap_vuln", "high",
+                                    f"Confirmed vulnerability on {ip}:{port_num}"
+                                )
+                                self.award_xp("vuln_validated", detail=f"{ip}:{port_num} {v.get('name', 'vuln')}")
+                                self._stats["vulns_validated"] = self._stats.get("vulns_validated", 0) + 1
+                                self.log_knowledge("vuln_validated", vuln_key, {"ip": ip, "port": port_num, "name": v.get('name', '')}, source="vuln_scan")
 
                 # ── Phase 7: Build Topology ──
                 self._current_phase = "topology"
@@ -4497,12 +4568,14 @@ class TamagotchiEngine:
             import os
             pcap = f"{outfile}.pcap"
             if os.path.exists(pcap) and os.path.getsize(pcap) > 0:
-                self._think(f"Captured traffic from {ap.ssid or ap.bssid}")
-                self.log_knowledge("wifi_capture", ap.bssid, {
-                    "ssid": ap.ssid, "signal": ap.signal, "pcap": pcap,
-                    "size": os.path.getsize(pcap),
-                }, source="passive_capture")
-                self.award_xp("wifi_traffic_captured", detail=f"{ap.ssid}")
+                cap_key = f"capture_{ap.bssid}"
+                if not self._is_known_finding("wifi_capture", cap_key):
+                    self._think(f"Captured traffic from {ap.ssid or ap.bssid}")
+                    self.log_knowledge("wifi_capture", cap_key, {
+                        "ssid": ap.ssid, "signal": ap.signal, "pcap": pcap,
+                        "size": os.path.getsize(pcap),
+                    }, source="passive_capture")
+                    self.award_xp("wifi_traffic_captured", detail=f"{ap.ssid}")
             else:
                 self._think(f"No traffic captured from {ap.ssid or ap.bssid}")
         except Exception as e:
@@ -4540,7 +4613,10 @@ class TamagotchiEngine:
         new_vulns = 0
 
         if len(device.services) > 3:
-            self.award_xp("service_enum_deep", detail=f"{ip}: {len(device.services)} services")
+            enum_key = f"enum_{ip}_{len(device.services)}"
+            if not self._is_known_finding("service_enum", enum_key):
+                self.award_xp("service_enum_deep", detail=f"{ip}: {len(device.services)} services")
+                self.log_knowledge("service_enum", enum_key, {"ip": ip, "count": len(device.services)}, source="auto_analysis")
 
         for svc in device.services:
             port = svc.port
@@ -5219,19 +5295,21 @@ class TamagotchiEngine:
                 # Check if capture file exists and has data
                 cap_path = Path(f"{cap_file}-01.cap")
                 if cap_path.exists() and cap_path.stat().st_size > 1000:
-                    self._think(f"Handshake captured from {ap.ssid}!")
-                    self.award_xp("handshake_captured", detail=f"{ap.ssid} ({ap.bssid})")
-                    self.create_notification(
-                        NotificationType.NEW_DEVICE,
-                        f"WiFi handshake captured: {ap.ssid}",
-                        f"BSSID: {ap.bssid}, Channel: {ap.channel}, File: {cap_path.name}",
-                        severity="info",
-                    )
-                    self.log_knowledge("wifi_capture", f"handshake_{ap.bssid}", {
-                        "ssid": ap.ssid, "bssid": ap.bssid, "channel": ap.channel,
-                        "file": str(cap_path), "size": cap_path.stat().st_size,
-                    }, source="handshake_capture")
-                    self._stats["handshakes_captured"] = self._stats.get("handshakes_captured", 0) + 1
+                    hs_key = f"handshake_{ap.bssid}"
+                    if not self._is_known_finding("wifi_capture", hs_key):
+                        self._think(f"Handshake captured from {ap.ssid}!")
+                        self.award_xp("handshake_captured", detail=f"{ap.ssid} ({ap.bssid})")
+                        self.create_notification(
+                            NotificationType.NEW_DEVICE,
+                            f"WiFi handshake captured: {ap.ssid}",
+                            f"BSSID: {ap.bssid}, Channel: {ap.channel}, File: {cap_path.name}",
+                            severity="info",
+                        )
+                        self.log_knowledge("wifi_capture", hs_key, {
+                            "ssid": ap.ssid, "bssid": ap.bssid, "channel": ap.channel,
+                            "file": str(cap_path), "size": cap_path.stat().st_size,
+                        }, source="handshake_capture")
+                        self._stats["handshakes_captured"] = self._stats.get("handshakes_captured", 0) + 1
 
                     # Try to crack with common wordlist
                     await self._crack_handshake(str(cap_path), ap.ssid)
@@ -5266,16 +5344,18 @@ class TamagotchiEngine:
             )
             if "KEY FOUND" in stdout:
                 key = stdout.split("KEY FOUND!")[1].strip() if "KEY FOUND" in stdout else "unknown"
-                self._think(f"WPA KEY FOUND for {ssid}: {key}")
-                self.award_xp("wpa_cracked", detail=f"{ssid}: {key}")
-                self.create_notification(
-                    NotificationType.ALERT,
-                    f"WPA cracked: {ssid}",
-                    f"Key: {key}",
-                    severity="critical",
-                )
-                self.log_knowledge("wifi_attack", f"wpa_cracked_{ssid}", {
-                    "ssid": ssid, "key": key, "wordlist": wordlist,
+                crack_key = f"wpa_cracked_{ssid}"
+                if not self._is_known_finding("wifi_attack", crack_key):
+                    self._think(f"WPA KEY FOUND for {ssid}: {key}")
+                    self.award_xp("wpa_cracked", detail=f"{ssid}: {key}")
+                    self.create_notification(
+                        NotificationType.ALERT,
+                        f"WPA cracked: {ssid}",
+                        f"Key: {key}",
+                        severity="critical",
+                    )
+                    self.log_knowledge("wifi_attack", crack_key, {
+                        "ssid": ssid, "key": key, "wordlist": wordlist,
                 }, source="wpa_crack")
         finally:
             self._resume_ollama()
@@ -5357,15 +5437,17 @@ class TamagotchiEngine:
                     "target": ip, "privesc_paths": privesc[:1500],
                 }, source="post_exploit")
                 if "NOPASSWD" in privesc:
-                    self._think(f"NOPASSWD sudo found on {ip} — root access possible!")
-                    self.award_xp("privilege_escalated", detail=f"{ip}: NOPASSWD sudo")
-                    self.create_notification(
-                        NotificationType.ALERT,
-                        f"Privilege escalation: {ip}",
-                        f"NOPASSWD sudo found: {privesc[:300]}",
-                        severity="critical",
-                        target=ip,
-                    )
+                    privesc_key = f"privesc_nopasswd_{ip}"
+                    if not self._is_known_finding("post_exploit", privesc_key):
+                        self._think(f"NOPASSWD sudo found on {ip} — root access possible!")
+                        self.award_xp("privilege_escalated", detail=f"{ip}: NOPASSWD sudo")
+                        self.create_notification(
+                            NotificationType.ALERT,
+                            f"Privilege escalation: {ip}",
+                            f"NOPASSWD sudo found: {privesc[:300]}",
+                            severity="critical",
+                            target=ip,
+                        )
 
             # Try to install persistence (SSH key)
             persistence = await self._fast_nmap(
@@ -5374,11 +5456,13 @@ class TamagotchiEngine:
                 "2>/dev/null", timeout=15
             )
             if "PERSISTENCE_OK" in persistence:
-                self._think(f"Persistence installed on {ip} via SSH key")
-                self.award_xp("persistence_established", detail=f"{ip}: SSH key")
-                self.log_knowledge("post_exploit", f"persistence_{ip}", {
-                    "target": ip, "method": "ssh_key", "success": True,
-                }, source="post_exploit")
+                persist_key = f"persistence_ssh_{ip}"
+                if not self._is_known_finding("post_exploit", persist_key):
+                    self._think(f"Persistence installed on {ip} via SSH key")
+                    self.award_xp("persistence_established", detail=f"{ip}: SSH key")
+                    self.log_knowledge("post_exploit", persist_key, {
+                        "target": ip, "method": "ssh_key", "success": True,
+                    }, source="post_exploit")
 
             # Harvest credentials
             creds = await self._fast_nmap(
@@ -5388,11 +5472,13 @@ class TamagotchiEngine:
                 "2>/dev/null", timeout=20
             )
             if creds.strip():
-                self.log_knowledge("post_exploit", f"creds_{ip}", {
-                    "target": ip, "credentials": creds[:2000],
-                }, source="post_exploit")
-                self.award_xp("credential_harvested", detail=f"{ip}")
-                self._think(f"Credentials harvested from {ip}")
+                creds_key = f"creds_{ip}"
+                if not self._is_known_finding("post_exploit", creds_key):
+                    self.log_knowledge("post_exploit", creds_key, {
+                        "target": ip, "credentials": creds[:2000],
+                    }, source="post_exploit")
+                    self.award_xp("credential_harvested", detail=f"{ip}")
+                    self._think(f"Credentials harvested from {ip}")
 
     # ── 6. Bluetooth Scanning ────────────────────────────────────
 
@@ -5410,10 +5496,12 @@ class TamagotchiEngine:
                         mac = parts[0].strip()
                         name = parts[1].strip()
                         devices.append({"mac": mac, "name": name})
-                        self.award_xp("bluetooth_found", detail=f"{name} ({mac})")
-                        self.log_knowledge("bluetooth", f"device_{mac}", {
-                            "mac": mac, "name": name,
-                        }, source="bluetooth_scan")
+                        bt_key = f"device_{mac}"
+                        if not self._is_known_finding("bluetooth", bt_key):
+                            self.award_xp("bluetooth_found", detail=f"{name} ({mac})")
+                            self.log_knowledge("bluetooth", bt_key, {
+                                "mac": mac, "name": name,
+                            }, source="bluetooth_scan")
 
             if devices:
                 self._think(f"Found {len(devices)} Bluetooth device(s)")
@@ -5518,11 +5606,13 @@ class TamagotchiEngine:
                     if "+" in line and ":" in line:
                         findings.append(line.strip())
                 if findings:
-                    self._think(f"Nikto found {len(findings)} item(s) on {url}")
-                    self.log_knowledge("web_vuln", f"nikto_{ip}_{port}", {
-                        "target": url, "findings": findings[:20],
-                    }, source="nikto")
-                    self.award_xp("service_exploited", detail=f"Nikto {url}")
+                    nikto_key = f"nikto_{ip}_{port}"
+                    if not self._is_known_finding("web_vuln", nikto_key):
+                        self._think(f"Nikto found {len(findings)} item(s) on {url}")
+                        self.log_knowledge("web_vuln", nikto_key, {
+                            "target": url, "findings": findings[:20],
+                        }, source="nikto")
+                        self.award_xp("service_exploited", detail=f"Nikto {url}")
 
             # Check common web vulns manually
             for path, name in [
@@ -5537,11 +5627,13 @@ class TamagotchiEngine:
                 )
                 code = check.strip().replace("'", "")
                 if code in ("200", "301", "302"):
-                    self._think(f"Web vuln on {url}: {name} accessible (HTTP {code})")
-                    self.award_xp("vuln_validated", detail=f"{url}{path}")
-                    self.log_knowledge("web_vuln", f"{name}_{ip}_{port}", {
-                        "target": url, "path": path, "status": code, "type": name,
-                    }, source="web_test")
+                    web_key = f"{name}_{ip}_{port}"
+                    if not self._is_known_finding("web_vuln", web_key):
+                        self._think(f"Web vuln on {url}: {name} accessible (HTTP {code})")
+                        self.award_xp("vuln_validated", detail=f"{url}{path}")
+                        self.log_knowledge("web_vuln", web_key, {
+                            "target": url, "path": path, "status": code, "type": name,
+                        }, source="web_test")
 
     # ── 9. Learning Loop ─────────────────────────────────────────
 
