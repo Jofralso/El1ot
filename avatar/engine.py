@@ -302,9 +302,8 @@ class AvatarEngine:
 
     async def ws_handler(self, websocket):
         """Handle a WebSocket client connection."""
-        client_id = id(websocket)
-        self._connected_clients.add(client_id)
-        logger.info(f"Avatar client connected: {client_id} (total: {len(self._connected_clients)})")
+        self._connected_clients.add(websocket)
+        logger.info(f"Avatar client connected (total: {len(self._connected_clients)})")
 
         try:
             await websocket.send(self.get_ws_payload())
@@ -316,10 +315,10 @@ class AvatarEngine:
                 except json.JSONDecodeError:
                     await websocket.send(json.dumps({"error": "invalid JSON"}))
         except Exception as e:
-            logger.debug(f"Avatar client {client_id} disconnected: {e}")
+            logger.debug(f"Avatar client disconnected: {e}")
         finally:
-            self._connected_clients.discard(client_id)
-            logger.info(f"Avatar client removed: {client_id} (total: {len(self._connected_clients)})")
+            self._connected_clients.discard(websocket)
+            logger.info(f"Avatar client removed (total: {len(self._connected_clients)})")
 
     async def _handle_client_message(self, websocket, data: Dict[str, Any]):
         msg_type = data.get("type", "")
@@ -359,18 +358,21 @@ class AvatarEngine:
         """Broadcast state to all connected clients."""
         payload = json.dumps(data or self.get_snapshot())
         disconnected = set()
-        for client_id in list(self._connected_clients):
+        for ws in list(self._connected_clients):
             try:
-                await self._broadcast_queue.put(payload)
+                await ws.send(payload)
             except Exception:
-                disconnected.add(client_id)
+                disconnected.add(ws)
         self._connected_clients -= disconnected
 
-    async def start_broadcast_loop(self, interval: float = 0.05):
-        """Continuously broadcast state at given interval (20fps)."""
+    async def start_broadcast_loop(self, interval: float = 0.1):
+        """Continuously broadcast state at given interval."""
         while True:
             if self._connected_clients:
-                await self.broadcast()
+                try:
+                    await self.broadcast()
+                except Exception:
+                    pass
             await asyncio.sleep(interval)
 
 

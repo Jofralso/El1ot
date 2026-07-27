@@ -106,7 +106,9 @@ async def lifespan(app: FastAPI):
         from avatar.engine import get_avatar_engine
         avatar = get_avatar_engine()
         avatar.complete_boot()
-        logger.info("Avatar engine boot completed")
+        loop = asyncio.get_running_loop()
+        loop.create_task(avatar.start_broadcast_loop(interval=0.1))
+        logger.info("Avatar engine boot completed, broadcast loop started")
     except Exception as e:
         logger.warning(f"Avatar boot completion skipped: {e}")
 
@@ -119,16 +121,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Stealth engine init skipped: {e}")
 
-    # Initialize Sentient Engine
+    # Initialize Sentient Engine (no auto-loop — tamagotchi is the sole engine)
     try:
         from agents.sentient import get_sentient_engine
         sentient_engine = get_sentient_engine()
-        if settings.sentient_enabled:
-            loop = asyncio.get_running_loop()
-            loop.create_task(sentient_engine.start(scan_interval=settings.sentient_scan_interval))
-            logger.info(f"Sentient engine started (interval={settings.sentient_scan_interval}s)")
-        else:
-            logger.info("Sentient engine disabled")
+        logger.info("Sentient engine initialized (utility only, no auto-scan)")
     except Exception as e:
         logger.warning(f"Sentient engine init skipped: {e}")
 

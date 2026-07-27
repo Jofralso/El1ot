@@ -272,6 +272,7 @@ class ShellAgent(BaseAgent):
             
             if analysis:
                 self._store_output(command, stdout, analysis)
+                await self._feed_to_tamagotchi(command, stdout)
                 
                 enhanced_content = (
                     f"$ {command}\n\n"
@@ -294,6 +295,7 @@ class ShellAgent(BaseAgent):
                 )
         
         self._store_output(command, stdout, "")
+        await self._feed_to_tamagotchi(command, stdout)
         return result
     
     def _store_output(self, command: str, stdout: str, analysis: str):
@@ -305,6 +307,25 @@ class ShellAgent(BaseAgent):
         })
         if len(self._recent_outputs) > self._max_recent:
             self._recent_outputs = self._recent_outputs[-self._max_recent:]
+
+    async def _feed_to_tamagotchi(self, command: str, stdout: str):
+        """Feed scan results into tamagotchi knowledge for autonomous learning."""
+        try:
+            cmd_lower = command.lower()
+            is_scan = any(kw in cmd_lower for kw in [
+                'nmap', 'nikto', 'sqlmap', 'hydra', 'gobuster', 'dirb',
+                'masscan', 'enum4linux', 'smbclient', 'snmpwalk',
+                'wpscan', 'whatweb', 'dirbuster', 'ffuf', 'wfuzz',
+                'searchsploit', 'msfconsole', 'msfvenom', 'aircrack',
+                'airodump', 'aireplay', 'btmon', 'hcitool',
+            ])
+            if not is_scan:
+                return
+            from agents.tamagotchi import get_tamagotchi_engine
+            tama = get_tamagotchi_engine()
+            await tama.ingest_scan_result(command, stdout, source="shell_agent")
+        except Exception as e:
+            logger.debug(f"Feed to tamagotchi failed: {e}")
     
     def _get_timeout(self, command: str) -> float:
         """Get appropriate timeout based on command type."""

@@ -418,8 +418,33 @@ async function renderOverview() {
 
 // Map Page with Interactive Topology + Detail Panel
 async function renderMap() {
+  const [topology, devices, wifi, tamaStatus] = await Promise.all([
+    fetch(API+'/sentient/topology').then(r=>r.json()).catch(()=>({nodes:[],edges:[]})),
+    fetch(API+'/sentient/devices').then(r=>r.json()).catch(()=>({devices:[]})),
+    fetch(API+'/sentient/wifi').then(r=>r.json()).catch(()=>({access_points:[]})),
+    fetch(API+'/tamagotchi/status').then(r=>r.json()).catch(()=>({})),
+  ]);
+
+  const devs = devices.devices || [];
+  const nodeCount = (topology.nodes||[]).length;
+  const edgeCount = (topology.edges||[]).length;
+  const phase = tamaStatus.current_phase || 'idle';
+  const thought = tamaStatus.current_thought || '...';
+  const isScanning = tamaStatus.state === 'scanning';
+  const stateColors2 = {idle:'var(--text-muted)',scanning:'var(--accent)',mapping:'var(--info)',cracking:'var(--warning)',analyzing:'var(--success)',exploiting:'var(--danger)',alert:'var(--danger)',sleeping:'var(--text-muted)'};
+
   const c = document.getElementById('content');
   c.innerHTML = `<div class="fade-in">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:10px 16px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px">
+      <div style="width:8px;height:8px;border-radius:50%;background:${isScanning?'var(--accent)':'var(--text-muted)'};${isScanning?'animation:pulse 1.5s infinite':''}"></div>
+      <span style="font-size:12px;font-weight:600;color:${stateColors2[tamaStatus.state]||'var(--text-muted)'}">${tamaStatus.state||'unknown'}</span>
+      <span style="font-size:11px;color:var(--text-muted)">|</span>
+      <span style="font-size:11px;color:var(--text-secondary)">${nodeCount} nodes · ${edgeCount} edges · ${devs.length} devices · ${(wifi.access_points||[]).length} APs</span>
+      <span style="font-size:11px;color:var(--text-muted)">|</span>
+      <span style="font-size:11px;color:var(--text-secondary)">${phase.replace(/_/g,' ')}</span>
+      <span style="flex:1"></span>
+      <span style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${thought}</span>
+    </div>
     <div style="position:relative">
       <div class="topo-container" id="topo"></div>
       <div class="topo-detail" id="topo-detail">
@@ -432,12 +457,6 @@ async function renderMap() {
     </div>
     <div style="margin-top:16px" id="map-table"></div>
   </div>`;
-
-  const [topology, devices, wifi] = await Promise.all([
-    fetch(API+'/sentient/topology').then(r=>r.json()).catch(()=>({nodes:[],edges:[]})),
-    fetch(API+'/sentient/devices').then(r=>r.json()).catch(()=>({devices:[]})),
-    fetch(API+'/sentient/wifi').then(r=>r.json()).catch(()=>({access_points:[]}))
-  ]);
 
   renderTopologySVG(topology, devices);
 
@@ -823,46 +842,110 @@ async function renderTamagotchi() {
 
   const tc = document.getElementById('tama-content');
   const state = status.state||'idle';
-  const stateColors = {idle:'var(--text-muted)',scanning:'var(--accent)',mapping:'var(--info)',cracking:'var(--warning)',analyzing:'var(--success)',exploiting:'var(--danger)',alert:'var(--danger)',sleeping:'var(--text-muted)'};
+  window.stateColors = {idle:'var(--text-muted)',scanning:'var(--accent)',mapping:'var(--info)',cracking:'var(--warning)',analyzing:'var(--success)',exploiting:'var(--danger)',alert:'var(--danger)',sleeping:'var(--text-muted)'};
+  const stateColors = window.stateColors;
 
-  // Mr. Robot ASCII Avatar
+  // Mr. Robot ASCII Avatar — distinct per state
   const avatarFrames = {
-    idle: `
-      ░░░░░░░░░░░░░░░░░░░░░
-      ░░░░░░░░█████████░░░░░░
-      ░░░░░██░░░░░░░░░░░██░░░░
-      ░░░░██░░░░░░░░░░░░░██░░░
-      ░░░░██░░░░░░░░░░░░░██░░░
-      ░░░░░██░░░░░░░░░░██░░░░░
-      ░░░░░░░█████████░░░░░░░░
-      ░░░░░░░░░░░░░░░░░░░░░░░░`,
-    scanning: `
-      ░░░░░░░░░░░░░░░░░░░░░
-      ░░░░░░░░█████████░░░░░░
-      ░░░░░██░░░░░░░░░░░██░░░░
-      ░░░░██░░░░░░░░░░░░░██░░░
-      ░░░░██░░░░░░░░░░░░░██░░░
-      ░░░░░██░░░░░░░░░░██░░░░░
-      ░░░░░░░█████████░░░░░░░░
-      ░░░░░░░░░░░░░░░░░░░░░░░░`,
-    exploiting: `
-      ░░░░░░░░░░░░░░░░░░░░░
-      ░░░░░░░░█████████░░░░░░
-      ░░░░░██░░░░░░░░░░░██░░░░
-      ░░░░██░░░░░░░░░░░░░██░░░
-      ░░░░██░░░░░░░░░░░░░██░░░
-      ░░░░░██░░░░░░░░░░██░░░░░
-      ░░░░░░░█████████░░░░░░░░
-      ░░░░░░░░░░░░░░░░░░░░░░░░`,
-    sleeping: `
-      ░░░░░░░░░░░░░░░░░░░░░
-      ░░░░░░░░█████████░░░░░░
-      ░░░░░██░░░░░░░░░░░██░░░░
-      ░░░░██░░░░░░░░░░░░░██░░░
-      ░░░░██░░░░░░░░░░░░░██░░░
-      ░░░░░██░░░░░░░░░░██░░░░░
-      ░░░░░░░█████████░░░░░░░░
-      ░░░░░░░░░░░░░░░░░░░░░░░░`
+    idle: `<pre style="color:var(--text-muted)">
+    ┌─────────────┐
+    │  ░▒▓█ ELIOT █▓▒░  │
+    │ ┌───────────┐ │
+    │ │ ●     ● │ │
+    │ │    ▼    │ │
+    │ │  ───    │ │
+    │ └───────────┘ │
+    │   [ IDLE ]    │
+    └─────────────┘</pre>`,
+    scanning: `<pre style="color:var(--accent)">
+    ┌─────────────┐
+    │  ▓█ SCAN █▓  │
+    │ ┌───────────┐ │
+    │ │ ◉     ◉ │ │
+    │ │  ◢██◣   │ │
+    │ │  ───    │ │
+    │ └───────────┘ │
+    │  ╔═══╗       │
+    │  ║ ◉ ║ scan  │
+    │  ╚═══╝       │
+    └─────────────┘</pre>`,
+    analyzing: `<pre style="color:var(--success)">
+    ┌─────────────┐
+    │ ▓▓ ANALYZE ▓▓ │
+    │ ┌───────────┐ │
+    │ │ ◉     ◉ │ │
+    │ │    ▼    │ │
+    │ │ ═════   │ │
+    │ └───────────┘ │
+    │  ◌ ◌ ◌ ◌ ◌  │
+    │  processing   │
+    └─────────────┘</pre>`,
+    exploiting: `<pre style="color:var(--danger)">
+    ┌─────────────┐
+    │ ██ EXPLOIT ██ │
+    │ ┌───────────┐ │
+    │ │ ▓     ▓ │ │
+    │ │  ◢██◣   │ │
+    │ │ ══╳══   │ │
+    │ └───────────┘ │
+    │  ⚡ BYPASS ⚡  │
+    │  ▓▓▓▓▓▓▓▓▓  │
+    └─────────────┘</pre>`,
+    cracking: `<pre style="color:var(--warning)">
+    ┌─────────────┐
+    │ ░░ CRACK ░░  │
+    │ ┌───────────┐ │
+    │ │ ◉     ◉ │ │
+    │ │    ▼    │ │
+    │ │ ┌─┐┌─┐  │ │
+    │ └───────────┘ │
+    │  hashcat ...  │
+    │  ▓▓▓░░░░░░░  │
+    └─────────────┘</pre>`,
+    alert: `<pre style="color:var(--danger)">
+    ┌─────────────┐
+    │ ⚠ ALERT! ⚠  │
+    │ ┌───────────┐ │
+    │ │ ◉     ◉ │ │
+    │ │  ◢██◣   │ │
+    │ │ ══╳══   │ │
+    │ └───────────┘ │
+    │  ▓▓▓▓▓▓▓▓▓  │
+    │  !! DANGER !! │
+    └─────────────┘</pre>`,
+    sleeping: `<pre style="color:var(--text-muted)">
+    ┌─────────────┐
+    │   z Z z     │
+    │ ┌───────────┐ │
+    │ │ ─     ─ │ │
+    │ │    ▼    │ │
+    │ │  ───    │ │
+    │ └───────────┘ │
+    │   z Z z       │
+    │  [ sleeping ]  │
+    └─────────────┘</pre>`,
+    mapping: `<pre style="color:var(--info)">
+    ┌─────────────┐
+    │ ◎ MAP ◎     │
+    │ ┌───────────┐ │
+    │ │ ◉     ◉ │ │
+    │ │    ▼    │ │
+    │ │ ╱─┼─╲   │ │
+    │ └───────────┘ │
+    │  ◉───◉──◉   │
+    │  topology...  │
+    └─────────────}</pre>`,
+    reporting: `<pre style="color:var(--success)">
+    ┌─────────────┐
+    │ ░ REPORT ░   │
+    │ ┌───────────┐ │
+    │ │ ◉     ◉ │ │
+    │ │    ▼    │ │
+    │ │  ───    │ │
+    │ └───────────┘ │
+    │  ═══════════  │
+    │  generating.. │
+    └─────────────}</pre>`
   };
 
   const xpProgress = gamification.xp_progress||0;
@@ -958,9 +1041,9 @@ async function renderTamagotchi() {
           </div>
           <div class="card-body">
             <div class="avatar-container">
-              <div class="avatar-ascii">${avatarFrames[state]||avatarFrames.idle}</div>
-              <div class="avatar-state" style="color:${stateColors[state]||'var(--text-muted)'}">${state}</div>
-              <div style="margin-top:8px;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;font-size:11px;color:var(--text-secondary);font-family:'JetBrains Mono',monospace;max-width:280px;text-align:center;min-height:20px">
+              <div class="avatar-ascii" id="avatar-live">${avatarFrames[state]||avatarFrames.idle}</div>
+              <div class="avatar-state" id="avatar-state-live" style="color:${stateColors[state]||'var(--text-muted)'}">${state}</div>
+              <div id="avatar-thought" style="margin-top:8px;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;font-size:11px;color:var(--text-secondary);font-family:'JetBrains Mono',monospace;max-width:280px;text-align:center;min-height:20px">
                 ${status.current_thought||'...'}
               </div>
               ${status.current_phase && status.current_phase!=='idle'?`
@@ -1328,7 +1411,8 @@ function updateBadges(devices, vulns) {
   if(nv) { nv.textContent=vulns; nv.style.display=vulns?'inline':'none'; }
 }
 
-// WebSocket for live updates
+// WebSocket for live updates — drives avatar rendering
+let avatarWSState = {};
 function connectWS() {
   try {
     const proto = location.protocol==='https:'?'wss':'ws';
@@ -1336,12 +1420,24 @@ function connectWS() {
     ws.onmessage = (e) => {
       try {
         const d = JSON.parse(e.data);
+        avatarWSState = d;
         if(d.state) {
           const dot = document.getElementById('status-dot');
           const txt = document.getElementById('status-text');
           if(dot) dot.className = 'status-dot ' + (d.state==='error'?'off':'on');
           if(txt) txt.textContent = d.state;
         }
+        // Live avatar update from WebSocket
+        const avatarEl = document.getElementById('avatar-live');
+        if(avatarEl && d.state) {
+          const f = avatarFrames[d.state] || avatarFrames.idle;
+          avatarEl.innerHTML = f;
+          const sc = document.getElementById('avatar-state-live');
+          if(sc) { sc.textContent = d.state; sc.style.color = stateColors[d.state]||'var(--text-muted)'; }
+        }
+        // Live thought from text_display
+        const thEl = document.getElementById('avatar-thought');
+        if(thEl && d.text_display) thEl.textContent = d.text_display;
       } catch(ex){}
     };
     ws.onclose = () => setTimeout(connectWS, 5000);
@@ -1377,6 +1473,7 @@ function escapeHtml(s) {
 connectWS();
 showPage('tamagotchi');
 setInterval(()=>{ if(currentPage==='tamagotchi') renderTamagotchi(); }, 5000);
+setInterval(()=>{ if(currentPage==='map') renderMap(); }, 3000);
 </script>
 </body>
 </html>"""

@@ -157,3 +157,17 @@ async def get_reports(limit: int = 10):
     from agents.tamagotchi import get_tamagotchi_engine
     engine = get_tamagotchi_engine()
     return {"reports": engine._reports[-limit:]}
+
+
+class IngestRequest(BaseModel):
+    command: str
+    stdout: str
+    source: str = "api"
+
+
+@router.post("/ingest")
+async def ingest_scan(req: IngestRequest):
+    from agents.tamagotchi import get_tamagotchi_engine
+    engine = get_tamagotchi_engine()
+    await engine.ingest_scan_result(req.command, req.stdout, source=req.source)
+    return {"status": "ingested", "source": req.source}
