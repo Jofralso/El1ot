@@ -838,11 +838,12 @@ async function renderTamagotchi() {
   const c = document.getElementById('content');
   c.innerHTML = '<div class="fade-in" id="tama-content"></div>';
 
-  const [status, gamification, notifications, notifs] = await Promise.all([
+  const [status, gamification, notifications, notifs, thinkLog] = await Promise.all([
     fetch(API+'/tamagotchi/status').then(r=>r.json()).catch(()=>({})),
     fetch(API+'/tamagotchi/gamification').then(r=>r.json()).catch(()=>({})),
     fetch(API+'/tamagotchi/notifications').then(r=>r.json()).catch(()=>({notifications:[]})),
-    fetch(API+'/tamagotchi/notifications').then(r=>r.json()).catch(()=>({notifications:[]}))
+    fetch(API+'/tamagotchi/notifications').then(r=>r.json()).catch(()=>({notifications:[]})),
+    fetch(API+'/tamagotchi/thinking-log?limit=100').then(r=>r.json()).catch(()=>({entries:[]}))
   ]);
 
   const tc = document.getElementById('tama-content');
@@ -1066,6 +1067,79 @@ async function renderTamagotchi() {
             <div style="text-align:center;margin-top:12px">
               <div style="font-size:24px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--accent)">Level ${level}</div>
               <div style="font-size:14px;color:var(--text-secondary)">${levelName}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase Timeline Card -->
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header">Phase Timeline <span style="color:var(--text-muted);font-weight:400;font-size:11px" id="phase-count"></span></div>
+          <div class="card-body" style="padding:8px 12px">
+            <div id="phase-timeline" style="display:flex;flex-direction:column;gap:2px">
+              ${(()=>{
+                const phases = [
+                  {id:'network_discovery',name:'Network Discovery',icon:'🔍'},
+                  {id:'wifi_recon',name:'WiFi Recon',icon:'📡'},
+                  {id:'host_discovery',name:'Host Discovery',icon:'🖥️'},
+                  {id:'service_analysis',name:'Service Analysis',icon:'⚙️'},
+                  {id:'os_detection',name:'OS Detection',icon:'🏷️'},
+                  {id:'vuln_scanning',name:'Vuln Scanning',icon:'🛡️'},
+                  {id:'topology',name:'Topology',icon:'🗺️'},
+                  {id:'osint',name:'OSINT',icon:'🌐'},
+                  {id:'bluetooth',name:'Bluetooth',icon:'📶'},
+                  {id:'handshake',name:'Handshake',icon:'🔑'},
+                  {id:'web_testing',name:'Web Testing',icon:'🌍'},
+                  {id:'auto_exploit',name:'Auto-Exploit',icon:'⚡'},
+                  {id:'exploitation',name:'Exploitation',icon:'💥'},
+                  {id:'post_exploit',name:'Post-Exploit',icon:'🏴'},
+                  {id:'learning',name:'Learning',icon:'🧠'},
+                  {id:'reporting',name:'Reporting',icon:'📊'},
+                  {id:'idle',name:'Idle',icon:'💤'},
+                ];
+                const cp = status.current_phase||'idle';
+                const ci = phases.findIndex(p=>p.id===cp);
+                return phases.map((p,i)=>{
+                  let style='opacity:0.35';
+                  let badge='○';
+                  if(i<ci){style='opacity:0.7';badge='✓';}
+                  else if(i===ci){style='color:var(--accent);font-weight:600;opacity:1';badge='●';}
+                  return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:11px;${style}" class="phase-row" data-phase="${p.id}">
+                    <span style="width:16px;text-align:center">${badge}</span>
+                    <span>${p.icon}</span>
+                    <span style="flex:1">${p.name}</span>
+                    ${i===status.phase_progress?.progress?'':''}
+                  </div>`;
+                }).join('');
+              })()}
+            </div>
+            ${status.current_phase && status.current_phase!=='idle'?`
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:3px">
+                <span>Current: ${status.current_phase.replace(/_/g,' ')}</span>
+                <span id="phase-pct">${status.phase_progress?.progress||0}%</span>
+              </div>
+              <div style="height:3px;background:var(--bg-elevated);border-radius:2px;overflow:hidden">
+                <div id="phase-bar" style="height:100%;width:${status.phase_progress?.progress||0}%;background:var(--accent);border-radius:2px;transition:width 0.5s"></div>
+              </div>
+            </div>`:''}
+          </div>
+        </div>
+
+        <!-- Think Log Card -->
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header">Think Log <span style="color:var(--text-muted);font-weight:400;font-size:11px" id="think-count">${(thinkLog.entries||[]).length} entries</span></div>
+          <div class="card-body" style="padding:0">
+            <div id="think-log" style="max-height:240px;overflow-y:auto;font-size:11px;font-family:'JetBrains Mono',monospace;padding:8px 12px;scroll-behavior:smooth">
+              ${(thinkLog.entries||[]).slice(0,50).map(e=>{
+                const age = Date.now()-new Date(e.timestamp*1000).getTime();
+                const ts = age<60000?Math.floor(age/1000)+'s':age<3600000?Math.floor(age/60000)+'m':Math.floor(age/3600000)+'h';
+                const sc = stateColors[e.state]||'var(--text-muted)';
+                return `<div style="padding:3px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:flex-start">
+                  <span style="color:var(--text-muted);white-space:nowrap;min-width:28px">${ts}</span>
+                  <span style="color:${sc};white-space:nowrap;min-width:14px">[${e.state||'?'}]</span>
+                  <span style="color:var(--text-secondary);word-break:break-word">${e.thought||''}</span>
+                </div>`;
+              }).join('')}
             </div>
           </div>
         </div>
@@ -1449,6 +1523,61 @@ function connectWS() {
   } catch(e) {}
 }
 
+// Tamagotchi WebSocket — live phase transitions + think messages
+let tamaWS = null;
+let tamaThinkBuffer = [];
+function connectTamaWS() {
+  try {
+    const proto = location.protocol==='https:'?'wss':'ws';
+    tamaWS = new WebSocket(proto+'://'+location.host+'/tamagotchi/ws');
+    tamaWS.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        if(d.type === 'tama_think' && d.data) {
+          // Prepend to think log
+          const logEl = document.getElementById('think-log');
+          if(logEl) {
+            const age = Date.now()-new Date(d.data.timestamp*1000).getTime();
+            const ts = age<60000?Math.floor(age/1000)+'s':age<3600000?Math.floor(age/60000)+'m':Math.floor(age/3600000)+'h';
+            const sc = (window.stateColors||{})[d.data.state]||'var(--text-muted)';
+            const html = `<div style="padding:3px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:flex-start" class="think-entry">
+              <span style="color:var(--text-muted);white-space:nowrap;min-width:28px">${ts}</span>
+              <span style="color:${sc};white-space:nowrap;min-width:14px">[${d.data.state||'?'}]</span>
+              <span style="color:var(--text-secondary);word-break:break-word">${d.data.thought||''}</span>
+            </div>`;
+            logEl.insertAdjacentHTML('afterbegin', html);
+            // Keep max 80 entries in DOM
+            while(logEl.children.length > 80) logEl.removeChild(logEl.lastChild);
+          }
+          // Update thought bubble
+          const thEl = document.getElementById('avatar-thought');
+          if(thEl && d.data.thought) thEl.textContent = d.data.thought;
+          // Update count
+          const cnt = document.getElementById('think-count');
+          if(cnt) cnt.textContent = logEl ? logEl.children.length+' entries' : '';
+        }
+        if(d.type === 'tama_phase' && d.data) {
+          // Update phase timeline
+          updatePhaseTimeline(d.data.phase, d.data.status);
+        }
+      } catch(ex){}
+    };
+    tamaWS.onclose = () => setTimeout(connectTamaWS, 5000);
+  } catch(e) {}
+}
+
+function updatePhaseTimeline(currentPhase, status) {
+  const rows = document.querySelectorAll('.phase-row');
+  const phases = ['network_discovery','wifi_recon','host_discovery','service_analysis','os_detection','vuln_scanning','topology','osint','bluetooth','handshake','web_testing','auto_exploit','exploitation','post_exploit','learning','reporting','idle'];
+  const ci = phases.indexOf(currentPhase);
+  rows.forEach((row,i) => {
+    const badge = row.querySelector('span:first-child');
+    if(i < ci) { row.style.opacity='0.7'; if(badge) badge.textContent='✓'; }
+    else if(i === ci) { row.style.opacity='1'; row.style.color='var(--accent)'; row.style.fontWeight='600'; if(badge) badge.textContent='●'; }
+    else { row.style.opacity='0.35'; row.style.color=''; row.style.fontWeight=''; if(badge) badge.textContent='○'; }
+  });
+}
+
 // Tamagotchi Controls
 async function startTama() {
   await fetch(API+'/tamagotchi/start', {method:'POST'});
@@ -1476,6 +1605,7 @@ function escapeHtml(s) {
 
 // Init
 connectWS();
+connectTamaWS();
 showPage('tamagotchi');
 setInterval(()=>{ if(currentPage==='tamagotchi') renderTamagotchi(); }, 5000);
 

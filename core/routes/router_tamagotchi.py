@@ -91,6 +91,12 @@ async def get_knowledge(category: Optional[str] = None, limit: int = 50):
     }
 
 
+@router.get("/thinking-log")
+async def get_thinking_log(limit: int = 200):
+    from agents.tamagotchi import get_tamagotchi_engine
+    return {"entries": get_tamagotchi_engine().get_thinking_log(limit=limit)}
+
+
 @router.get("/suggestions")
 async def get_suggestions():
     from agents.tamagotchi import get_tamagotchi_engine

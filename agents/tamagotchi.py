@@ -372,7 +372,8 @@ class TamagotchiEngine:
         self._wifi_interface: str = "wlxc4e984dfb30f"
         self._PRIMARY_WIFI: str = "wlxc4e984dfb30f"
         self._live_events: List[Dict[str, Any]] = []
-        self._max_live_events: int = 200
+        self._max_live_events: int = 500
+        self._ws_clients: set = set()
         self._scan_history: List[Dict[str, Any]] = []
         self._last_full_scan: float = 0
         # ── Gamification State ──
@@ -1903,7 +1904,7 @@ class TamagotchiEngine:
             "stats": self._stats,
             "ollama_paused": self._ollama_was_running,
             "current_thought": self._current_thought,
-            "thinking_log": self._thinking_log[-5:],
+            "thinking_log": self._thinking_log[-50:],
             # Gamification
             "xp": self._xp,
             "level": self._level,
@@ -2591,15 +2592,19 @@ class TamagotchiEngine:
             logger.info("Tamagotchi engine resumed")
 
     def _think(self, thought: str):
-        """Record a thought and log it."""
+        """Record a thought, log it, emit event, and broadcast to WebSocket clients."""
         self._current_thought = thought
-        self._thinking_log.append({
+        entry = {
             "thought": thought,
             "state": self._state.value,
+            "phase": self._current_phase,
             "timestamp": time.time(),
-        })
-        if len(self._thinking_log) > 100:
-            self._thinking_log = self._thinking_log[-100:]
+        }
+        self._thinking_log.append(entry)
+        if len(self._thinking_log) > 200:
+            self._thinking_log = self._thinking_log[-200:]
+        self._emit_event("think", entry)
+        self._broadcast_tama_event("tama_think", entry)
         logger.info(f"[TAMA THINK] {thought}")
         try:
             from avatar.engine import get_avatar_engine
@@ -2811,8 +2816,10 @@ class TamagotchiEngine:
 
                 # ── Phase 5: OS Detection (FAST) ──
                 self._current_phase = "os_detection"
-                for host in all_hosts[:10]:
+                self._phase_progress = {"phase": "os_detection", "progress": 0, "total": len(all_hosts[:10])}
+                for host_i, host in enumerate(all_hosts[:10]):
                     ip = host["ip"]
+                    self._phase_progress = {"phase": "os_detection", "progress": int((host_i/len(all_hosts[:10]))*100), "host": ip}
                     if ip in self._devices and not self._devices[ip].os_guess:
                         self._think(f"Detecting OS on {ip}...")
                         os_guess = await self._fast_os_detect(ip)
@@ -2830,10 +2837,12 @@ class TamagotchiEngine:
                     if any(s in svc_names for s in ["http", "https", "ssh", "ftp", "smb", "mysql", "redis", "telnet"]):
                         high_value.append(ip)
 
-                for ip in high_value[:8]:  # Limit to 8 targets
+                self._phase_progress = {"phase": "vuln_scanning", "progress": 0, "total": len(high_value[:8])}
+                for vuln_i, ip in enumerate(high_value[:8]):  # Limit to 8 targets
                     if self._paused:
                         while self._paused and self._running:
                             await asyncio.sleep(1)
+                    self._phase_progress = {"phase": "vuln_scanning", "progress": int((vuln_i/len(high_value[:8]))*100), "host": ip}
                     self._think(f"Vuln scanning {ip}...")
                     vulns = await self._fast_vuln_scan(ip)
                     for v in vulns:
@@ -2847,36 +2856,53 @@ class TamagotchiEngine:
 
                 # ── Phase 7: Build Topology ──
                 self._current_phase = "topology"
+                self._phase_progress = {"phase": "topology", "progress": 50}
                 self._think("Building network topology...")
                 self._build_topology()
+                self._phase_progress = {"phase": "topology", "progress": 100}
                 self.award_xp("topology_updated", detail=f"{len(self._topology.get('nodes',[]))} nodes, {len(self._topology.get('edges',[]))} edges")
 
                 # ── Phase 8: Passive OSINT ──
                 self._current_phase = "osint"
+                self._phase_progress = {"phase": "osint", "progress": 0}
                 self._think("Phase 8: Passive OSINT (DNS, Shodan)...")
+                self._broadcast_tama_event("tama_phase", {"phase": "osint", "name": "Passive OSINT", "status": "running"})
                 await self._passive_osint()
+                self._phase_progress = {"phase": "osint", "progress": 100}
 
                 # ── Phase 9: Bluetooth Scanning ──
                 self._current_phase = "bluetooth"
+                self._phase_progress = {"phase": "bluetooth", "progress": 0}
                 self._think("Phase 9: Scanning Bluetooth devices...")
+                self._broadcast_tama_event("tama_phase", {"phase": "bluetooth", "name": "Bluetooth Scan", "status": "running"})
                 await self._scan_bluetooth()
+                self._phase_progress = {"phase": "bluetooth", "progress": 100}
 
                 # ── Phase 10: WiFi Handshake Capture ──
                 self._current_phase = "handshake"
+                self._phase_progress = {"phase": "handshake", "progress": 0}
                 self._think("Phase 10: Attempting WiFi handshake capture...")
                 self._state = TamaState.SCANNING
+                self._broadcast_tama_event("tama_phase", {"phase": "handshake", "name": "Handshake Capture", "status": "running"})
                 await self._capture_handshake()
+                self._phase_progress = {"phase": "handshake", "progress": 100}
 
                 # ── Phase 11: Web Application Testing ──
                 self._current_phase = "web_testing"
+                self._phase_progress = {"phase": "web_testing", "progress": 0}
                 self._think("Phase 11: Web application testing...")
+                self._broadcast_tama_event("tama_phase", {"phase": "web_testing", "name": "Web App Testing", "status": "running"})
                 await self._test_web_apps()
+                self._phase_progress = {"phase": "web_testing", "progress": 100}
 
                 # ── Phase 12: AI-Driven Safe Auto-Exploitation ──
                 self._current_phase = "auto_exploit"
+                self._phase_progress = {"phase": "auto_exploit", "progress": 0}
                 self._think("Phase 12: AI-driven safe auto-exploitation...")
                 self._state = TamaState.EXPLOITING
+                self._broadcast_tama_event("tama_phase", {"phase": "auto_exploit", "name": "Auto-Exploit", "status": "running"})
                 await self._auto_exploit_safe()
+                self._phase_progress = {"phase": "auto_exploit", "progress": 100}
 
                 # ── Phase 13: Execute Authorized Exploits ──
                 self._current_phase = "exploitation"
@@ -2884,25 +2910,36 @@ class TamagotchiEngine:
                     t for t in self._exploit_queue
                     if t.auth_status == AuthStatus.APPROVED and not t.executed
                 ]
+                self._phase_progress = {"phase": "exploitation", "progress": 0, "authorized": len(authorized)}
                 if authorized:
                     self._think(f"Executing {len(authorized)} authorized exploit(s)...")
                     self._state = TamaState.EXPLOITING
+                    self._broadcast_tama_event("tama_phase", {"phase": "exploitation", "name": "Exploitation", "status": "running", "count": len(authorized)})
+                self._phase_progress = {"phase": "exploitation", "progress": 100}
 
                 # ── Phase 14: Post-Exploitation ──
                 self._current_phase = "post_exploit"
+                self._phase_progress = {"phase": "post_exploit", "progress": 0}
                 self._think("Phase 14: Post-exploitation enumeration...")
+                self._broadcast_tama_event("tama_phase", {"phase": "post_exploit", "name": "Post-Exploit", "status": "running"})
                 await self._post_exploit()
+                self._phase_progress = {"phase": "post_exploit", "progress": 100}
 
                 # ── Phase 15: Learning Loop ──
                 self._current_phase = "learning"
+                self._phase_progress = {"phase": "learning", "progress": 50}
                 self._think("Phase 15: Updating learning metrics...")
                 self._update_learning()
+                self._phase_progress = {"phase": "learning", "progress": 100}
 
                 # ── Phase 16: Generate Enhanced Report + Full Index ──
                 self._current_phase = "reporting"
+                self._phase_progress = {"phase": "reporting", "progress": 0}
                 self._think("Generating enhanced report and indexing all findings...")
+                self._broadcast_tama_event("tama_phase", {"phase": "reporting", "name": "Reporting", "status": "running"})
                 await self._generate_enhanced_report()
                 await self._index_all_findings()
+                self._phase_progress = {"phase": "reporting", "progress": 100}
                 self.award_xp("report_generated", detail=f"{self._stats['devices_found']} devices, {self._stats['vulns_found']} vulns")
                 self._stats["reports_generated"] = self._stats.get("reports_generated", 0) + 1
 
@@ -2913,6 +2950,7 @@ class TamagotchiEngine:
                 cycle_elapsed = time.time() - cycle_start
                 self._think(f"Cycle complete ({int(cycle_elapsed)}s). {self._stats['devices_found']} devices, {self._stats['vulns_found']} vulns, Level {self._level}.")
                 self._phase_progress = {"phase": "idle", "progress": 100}
+                self._broadcast_tama_event("tama_phase", {"phase": "idle", "name": "Idle", "status": "complete"})
                 await self._index_all_findings()
                 self.save_state()
 
@@ -4437,6 +4475,9 @@ class TamagotchiEngine:
             return self._live_events[-50:]
         return [e for e in self._live_events if e.get("timestamp", 0) > since]
 
+    def get_thinking_log(self, limit: int = 200) -> List[Dict[str, Any]]:
+        return list(reversed(self._thinking_log[-limit:]))
+
     def search_devices(self, query: str) -> List[Dict[str, Any]]:
         q = query.lower()
         results = []
@@ -4454,6 +4495,23 @@ class TamagotchiEngine:
         self._live_events.append(event)
         if len(self._live_events) > self._max_live_events:
             self._live_events = self._live_events[-self._max_live_events:]
+
+    def _broadcast_tama_event(self, event_type: str, data: Dict[str, Any]):
+        """Push event to all connected tamagotchi WebSocket clients."""
+        import json as _json
+        msg = _json.dumps({"type": event_type, "data": data, "timestamp": time.time()})
+        dead = set()
+        for ws in self._ws_clients:
+            try:
+                import asyncio as _aio
+                loop = _aio.get_event_loop()
+                if loop.is_running():
+                    _aio.ensure_future(ws.send_text(msg))
+                else:
+                    loop.run_until_complete(ws.send_text(msg))
+            except Exception:
+                dead.add(ws)
+        self._ws_clients -= dead
 
     def _build_topology(self):
         """Build topology graph from collected device/network/wifi data."""

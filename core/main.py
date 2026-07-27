@@ -237,6 +237,23 @@ async def sentient_live_ws(websocket: WebSocket):
         pass
 
 
+@app.websocket("/tamagotchi/ws")
+async def tamagotchi_ws(websocket: WebSocket):
+    """WebSocket endpoint for real-time tamagotchi phase transitions and think messages."""
+    await websocket.accept()
+    from agents.tamagotchi import get_tamagotchi_engine
+    tama = get_tamagotchi_engine()
+    tama._ws_clients.add(websocket)
+    try:
+        while True:
+            import asyncio
+            await asyncio.sleep(30)
+    except Exception:
+        pass
+    finally:
+        tama._ws_clients.discard(websocket)
+
+
 @app.get("/metrics")
 async def metrics_endpoint():
     """Prometheus metrics endpoint"""
