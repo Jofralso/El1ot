@@ -460,7 +460,6 @@ async function renderMap() {
 
   renderTopologySVG(topology, devices);
 
-  const devs = devices.devices || [];
   let rows = devs.map(d => `<tr onclick="showDeviceDetail('${d.ip}')" style="cursor:pointer"><td><code style="color:var(--accent)">${d.ip}</code></td><td>${d.hostname||'-'}</td><td>${d.mac||'-'}</td><td>${d.os_guess||'-'}</td><td><span class="sev sev-${d.type==='router'?'high':'info'}">${d.type||'?'}</span></td><td>${(d.services||[]).length}</td></tr>`).join('');
   if(!rows) rows = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No devices discovered</td></tr>';
 
