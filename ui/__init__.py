@@ -413,20 +413,10 @@ async function renderOverview() {
 
   const devs = devices.devices || [];
   const vulns = [];
-  devs.forEach(d => { (d.vulns||[]).forEach(v => vulns.push({...v, device:d.ip})); });
+  devs.forEach(d => { (d.vulnerabilities||[]).forEach(v => vulns.push({...v, device:d.ip})); });
+  const fc = document.getElementById('overview-content');
 
-  const sg = document.getElementById('stats-grid');
-  sg.innerHTML = `
-    <div class="stat-card"><div class="stat-label">Devices</div><div class="stat-value accent">${devs.length}</div><div class="stat-sub">on local network</div></div>
-    <div class="stat-card"><div class="stat-label">WiFi Networks</div><div class="stat-value success">${(wifi.access_points||[]).length}</div><div class="stat-sub">detected nearby</div></div>
-    <div class="stat-card"><div class="stat-label">Findings</div><div class="stat-value ${vulns.length?'medium':'success'}">${vulns.length}</div><div class="stat-sub">vulnerabilities found</div></div>
-    <div class="stat-card"><div class="stat-label">Scan Status</div><div class="stat-value" style="font-size:18px;color:${status.running?'var(--success)':'var(--text-muted)'}">${status.running?'Active':'Idle'}</div><div class="stat-sub">sentient engine</div></div>
-    <div class="stat-card"><div class="stat-label">Agent State</div><div class="stat-value" style="font-size:18px;color:var(--accent)">${tamagotchi.state||'idle'}</div><div class="stat-sub">tamagotchi</div></div>
-    <div class="stat-card"><div class="stat-label">Knowledge</div><div class="stat-value info">${(tamagotchi.knowledge_stats||{}).total||0}</div><div class="stat-sub">entries indexed</div></div>
-  `;
-
-  const cols = document.getElementById('overview-cols');
-  let devRows = devs.map(d => `<tr><td><code style="color:var(--accent)">${d.ip}</code></td><td>${d.hostname||'-'}</td><td>${d.os_guess||'-'}</td><td><span class="sev sev-${d.type==='router'?'high':d.type==='server'?'medium':'info'}">${d.type||'unknown'}</span></td></tr>`).join('');
+  let devRows = devs.map(d => `<tr><td><code style="color:var(--accent)">${d.ip}</code></td><td>${d.hostname||'-'}</td><td>${d.os_guess||'-'}</td><td><span class="sev sev-${(d.device_type||d.type)==='router'?'high':(d.device_type||d.type)==='server'?'medium':'info'}">${(d.device_type||d.type)||'unknown'}</span></td></tr>`).join('');
   if(!devRows) devRows = '<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:30px">No devices discovered yet. Click Scan to start.</td></tr>';
 
   let apRows = (wifi.access_points||[]).slice(0,10).map(a => `<tr><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.ssid}</td><td style="font-family:'JetBrains Mono',monospace;font-size:11px">${a.bssid}</td><td>${a.channel}</td><td style="color:${a.signal>-60?'var(--success)':a.signal>-75?'var(--warning)':'var(--danger)'}">${a.signal} dBm</td><td>${a.encryption==='on'?'<span style="color:var(--success)">WPA2</span>':'<span style="color:var(--danger)">Open</span>'}</td></tr>`).join('');
@@ -495,7 +485,12 @@ async function renderMap() {
     topoEl.addEventListener('touchstart', freezeMap, {passive:true});
   }
 
-  let rows = devs.map(d => `<tr onclick="showDeviceDetail('${d.ip}')" style="cursor:pointer"><td><code style="color:var(--accent)">${d.ip}</code></td><td>${d.hostname||'-'}</td><td>${d.mac||'-'}</td><td>${d.os_guess||'-'}</td><td><span class="sev sev-${d.type==='router'?'high':'info'}">${d.type||'?'}</span></td><td>${(d.services||[]).length}</td></tr>`).join('');
+  let rows = devs.map(d => {
+    const dtype = d.device_type || d.type || 'unknown';
+    const vulnCount = (d.vulnerabilities || d.vulns || []).length;
+    const vulnBadge = vulnCount > 0 ? `<span style="background:rgba(239,68,68,0.2);color:#ef4444;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px">${vulnCount}v</span>` : '';
+    return `<tr onclick="showDeviceDetail('${d.ip}')" style="cursor:pointer"><td><code style="color:var(--accent)">${d.ip}</code></td><td>${d.hostname||'-'}</td><td>${d.mac||'-'}</td><td>${d.os_guess||'-'}</td><td><span class="sev sev-${dtype==='router'?'high':dtype==='server'?'medium':'info'}">${dtype}</span>${vulnBadge}</td><td>${(d.services||[]).length}</td></tr>`;
+  }).join('');
   if(!rows) rows = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No devices discovered</td></tr>';
 
   document.getElementById('map-table').innerHTML = `
@@ -566,6 +561,13 @@ function renderTopologySVG(topo, devices) {
   svg += `<radialGradient id="rangeGrad" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#3b82f6" stop-opacity="0.03"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/></radialGradient>`;
   svg += `</defs>`;
 
+  // Build vuln lookup from device data
+  const vulnMap = {};
+  (devices.devices||[]).forEach(d => {
+    const vulns = d.vulnerabilities || d.vulns || [];
+    if(vulns.length > 0) vulnMap[d.ip] = vulns.length;
+  });
+
   // Distance rings (Masego-style scale)
   [60, 140, 230, 320].forEach((r, i) => {
     svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#1f2937" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.5"/>`;
@@ -613,6 +615,12 @@ function renderTopologySVG(topo, devices) {
     }
     // Main circle
     svg += `<circle r="${r}" fill="#111827" stroke="${color}" stroke-width="1.5" filter="url(#shadow)"/>`;
+    // Vuln indicator badge
+    const nodeVulns = n.ip ? (vulnMap[n.ip] || 0) : 0;
+    if(nodeVulns > 0) {
+      svg += `<circle cx="${r-2}" cy="${-r+2}" r="6" fill="#ef4444" opacity="0.9"/>`;
+      svg += `<text x="${r-2}" y="${-r+5}" text-anchor="middle" font-size="7" fill="white" font-weight="bold">${nodeVulns}</text>`;
+    }
     // Icon
     svg += `<text text-anchor="middle" dominant-baseline="central" font-size="${r > 14 ? 12 : 9}">${icon}</text>`;
     // Label
@@ -667,7 +675,7 @@ async function showDeviceDetail(ip) {
     </div>
   `).join('');
 
-  const vulns = (device.vulnerabilities||[]).map(v => `
+  const vulns = (device.vulnerabilities||device.vulns||[]).map(v => `
     <div style="margin-bottom:8px;padding:8px;background:var(--bg-elevated);border-radius:4px;border-left:3px solid var(--danger)">
       <div style="font-size:12px;font-weight:600"><span class="sev sev-${v.severity||'info'}">${(v.severity||'info').toUpperCase()}</span> ${v.name||'Unknown'}</div>
       <div style="font-size:11px;color:var(--text-secondary);margin-top:4px">${v.description||''}</div>
@@ -691,7 +699,7 @@ async function showDeviceDetail(ip) {
       </div>
       <div style="padding:8px;background:var(--bg-elevated);border-radius:4px">
         <div style="font-size:10px;color:var(--text-muted)">Type</div>
-        <div style="font-size:11px;color:var(--text-secondary)"><span class="sev sev-${device.type==='router'?'high':'info'}">${device.type||'unknown'}</span></div>
+        <div style="font-size:11px;color:var(--text-secondary)"><span class="sev sev-${(device.device_type||device.type)==='router'?'high':'info'}">${device.device_type||device.type||'unknown'}</span></div>
       </div>
       <div style="padding:8px;background:var(--bg-elevated);border-radius:4px">
         <div style="font-size:10px;color:var(--text-muted)">Services</div>
@@ -817,7 +825,7 @@ async function renderFindings() {
 
   const devs = devices.devices||[];
   const vulns = [];
-  devs.forEach(d => { (d.vulns||[]).forEach(v => vulns.push({...v, device:d.ip, hostname:d.hostname})); });
+  devs.forEach(d => { (d.vulnerabilities||d.vulns||[]).forEach(v => vulns.push({...v, device:d.ip, hostname:d.hostname})); });
 
   const fc = document.getElementById('findings-content');
   const exploits = tamagotchi.exploits||[];
@@ -1703,7 +1711,12 @@ function updateMapStatusOnly() {
     <span style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${thought}</span>`;
   }
   // Also update device table
-  let rows = devs.map(d => `<tr onclick="showDeviceDetail('${d.ip}')" style="cursor:pointer"><td><code style="color:var(--accent)">${d.ip}</code></td><td>${d.hostname||'-'}</td><td>${d.mac||'-'}</td><td>${d.os_guess||'-'}</td><td><span class="sev sev-${d.type==='router'?'high':'info'}">${d.type||'?'}</span></td><td>${(d.services||[]).length}</td></tr>`).join('');
+  let rows = devs.map(d => {
+    const dtype = d.device_type || d.type || 'unknown';
+    const vulnCount = (d.vulnerabilities || d.vulns || []).length;
+    const vulnBadge = vulnCount > 0 ? `<span style="background:rgba(239,68,68,0.2);color:#ef4444;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px">${vulnCount}v</span>` : '';
+    return `<tr onclick="showDeviceDetail('${d.ip}')" style="cursor:pointer"><td><code style="color:var(--accent)">${d.ip}</code></td><td>${d.hostname||'-'}</td><td>${d.mac||'-'}</td><td>${d.os_guess||'-'}</td><td><span class="sev sev-${dtype==='router'?'high':dtype==='server'?'medium':'info'}">${dtype}</span>${vulnBadge}</td><td>${(d.services||[]).length}</td></tr>`;
+  }).join('');
   if(!rows) rows = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No devices discovered</td></tr>';
   const tbl = document.getElementById('map-table');
   if(tbl) tbl.innerHTML = `<div class="card"><div class="card-header">Device Inventory <span style="color:var(--text-muted);font-weight:400;font-size:12px">${devs.length} hosts</span></div><div class="card-body table-wrap"><table><thead><tr><th>IP</th><th>Hostname</th><th>MAC</th><th>OS</th><th>Type</th><th>Services</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;

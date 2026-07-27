@@ -3228,6 +3228,25 @@ class TamagotchiEngine:
         """Award XP for an action. Returns actual XP gained (may differ with multipliers)."""
         base = amount or self.XP_WEIGHTS.get(action, 5)
 
+        # Map action to streak category for increment
+        _streak_map = {
+            "vuln_": "vulns", "vuln_found": "vulns", "vuln_validated": "vulns",
+            "service_exploited": "exploits", "exploit_": "exploits",
+            "wpa_cracked": "creds", "credential_": "creds", "hash_cracked": "creds",
+            "handshake_": "wifi", "wifi_": "wifi", "deauth_": "wifi",
+            "privilege_": "access", "persistence_": "persistence", "backdoor_": "persistence",
+            "mitm_": "mitm", "lateral_": "lateral",
+        }
+        streak_category = None
+        for prefix, cat in _streak_map.items():
+            if action == prefix or action.startswith(prefix):
+                streak_category = cat
+                break
+
+        # Increment streak counter for this category
+        if streak_category:
+            self._streaks[streak_category] = self._streaks.get(streak_category, 0) + 1
+
         # Streak bonus: +10% per streak level (max +50%)
         streak_key = action.split("_")[0] if "_" in action else action
         streak = self._streaks.get(streak_key, 0)
