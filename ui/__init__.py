@@ -418,12 +418,7 @@ async function renderOverview() {
 
 // Map Page with Interactive Topology + Detail Panel
 async function renderMap() {
-  const [topology, devices, wifi, tamaStatus] = await Promise.all([
-    fetch(API+'/sentient/topology').then(r=>r.json()).catch(()=>({nodes:[],edges:[]})),
-    fetch(API+'/sentient/devices').then(r=>r.json()).catch(()=>({devices:[]})),
-    fetch(API+'/sentient/wifi').then(r=>r.json()).catch(()=>({access_points:[]})),
-    fetch(API+'/tamagotchi/status').then(r=>r.json()).catch(()=>({})),
-  ]);
+  const {topology, devices, wifi, tamaStatus} = mapData || await fetchMapData();
 
   const devs = devices.devices || [];
   const nodeCount = (topology.nodes||[]).length;
@@ -435,7 +430,7 @@ async function renderMap() {
 
   const c = document.getElementById('content');
   c.innerHTML = `<div class="fade-in">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:10px 16px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px">
+    <div id="map-status-bar" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:10px 16px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px">
       <div style="width:8px;height:8px;border-radius:50%;background:${isScanning?'var(--accent)':'var(--text-muted)'};${isScanning?'animation:pulse 1.5s infinite':''}"></div>
       <span style="font-size:12px;font-weight:600;color:${stateColors2[tamaStatus.state]||'var(--text-muted)'}">${tamaStatus.state||'unknown'}</span>
       <span style="font-size:11px;color:var(--text-muted)">|</span>
@@ -443,6 +438,9 @@ async function renderMap() {
       <span style="font-size:11px;color:var(--text-muted)">|</span>
       <span style="font-size:11px;color:var(--text-secondary)">${phase.replace(/_/g,' ')}</span>
       <span style="flex:1"></span>
+      <span id="map-freeze-badge" style="display:none;align-items:center;gap:6px;padding:3px 10px;background:rgba(255,180,50,0.15);border:1px solid rgba(255,180,50,0.3);border-radius:6px;font-size:10px;color:#ffb432;cursor:pointer" onclick="unfreezeMap()">
+        <span style="font-size:10px">⏸</span> Paused <span style="font-size:9px;opacity:0.7">[click to resume]</span>
+      </span>
       <span style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${thought}</span>
     </div>
     <div style="position:relative">
@@ -459,6 +457,14 @@ async function renderMap() {
   </div>`;
 
   renderTopologySVG(topology, devices);
+
+  // Interaction listeners: freeze auto-refresh when user interacts with the map
+  const topoEl = document.getElementById('topo');
+  if(topoEl) {
+    ['mousedown','click','wheel'].forEach(evt => topoEl.addEventListener(evt, freezeMap));
+    topoEl.addEventListener('mouseenter', freezeMap);
+    topoEl.addEventListener('touchstart', freezeMap, {passive:true});
+  }
 
   let rows = devs.map(d => `<tr onclick="showDeviceDetail('${d.ip}')" style="cursor:pointer"><td><code style="color:var(--accent)">${d.ip}</code></td><td>${d.hostname||'-'}</td><td>${d.mac||'-'}</td><td>${d.os_guess||'-'}</td><td><span class="sev sev-${d.type==='router'?'high':'info'}">${d.type||'?'}</span></td><td>${(d.services||[]).length}</td></tr>`).join('');
   if(!rows) rows = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No devices discovered</td></tr>';
@@ -1472,7 +1478,79 @@ function escapeHtml(s) {
 connectWS();
 showPage('tamagotchi');
 setInterval(()=>{ if(currentPage==='tamagotchi') renderTamagotchi(); }, 5000);
-setInterval(()=>{ if(currentPage==='map') renderMap(); }, 3000);
+
+// Map auto-refresh with interaction-aware freeze
+let mapFrozen = false;
+let mapUnfreezeTimer = null;
+let mapData = null;
+
+function freezeMap() {
+  mapFrozen = true;
+  const badge = document.getElementById('map-freeze-badge');
+  if(badge) badge.style.display = 'flex';
+  clearTimeout(mapUnfreezeTimer);
+  mapUnfreezeTimer = setTimeout(()=>{ mapFrozen = false; const b=document.getElementById('map-freeze-badge'); if(b) b.style.display='none'; }, 10000);
+}
+
+function unfreezeMap() {
+  mapFrozen = false;
+  clearTimeout(mapUnfreezeTimer);
+  const badge = document.getElementById('map-freeze-badge');
+  if(badge) badge.style.display = 'none';
+  renderMap();
+}
+
+async function fetchMapData() {
+  const [topology, devices, wifi, tamaStatus] = await Promise.all([
+    fetch(API+'/sentient/topology').then(r=>r.json()).catch(()=>({nodes:[],edges:[]})),
+    fetch(API+'/sentient/devices').then(r=>r.json()).catch(()=>({devices:[]})),
+    fetch(API+'/sentient/wifi').then(r=>r.json()).catch(()=>({access_points:[]})),
+    fetch(API+'/tamagotchi/status').then(r=>r.json()).catch(()=>({})),
+  ]);
+  mapData = {topology, devices, wifi, tamaStatus};
+  return mapData;
+}
+
+function updateMapStatusOnly() {
+  if(!mapData || currentPage !== 'map') return;
+  const {topology, devices, wifi, tamaStatus} = mapData;
+  const devs = devices.devices || [];
+  const nodeCount = (topology.nodes||[]).length;
+  const edgeCount = (topology.edges||[]).length;
+  const phase = tamaStatus.current_phase || 'idle';
+  const thought = tamaStatus.current_thought || '...';
+  const isScanning = tamaStatus.state === 'scanning';
+  const stateColors2 = {idle:'var(--text-muted)',scanning:'var(--accent)',mapping:'var(--info)',cracking:'var(--warning)',analyzing:'var(--success)',exploiting:'var(--danger)',alert:'var(--danger)',sleeping:'var(--text-muted)'};
+  const bar = document.getElementById('map-status-bar');
+  if(bar) {
+    const freezeBadge = document.getElementById('map-freeze-badge');
+    const wasFrozen = mapFrozen;
+    bar.innerHTML = `
+    <div style="width:8px;height:8px;border-radius:50%;background:${isScanning?'var(--accent)':'var(--text-muted)'};${isScanning?'animation:pulse 1.5s infinite':''}"></div>
+    <span style="font-size:12px;font-weight:600;color:${stateColors2[tamaStatus.state]||'var(--text-muted)'}">${tamaStatus.state||'unknown'}</span>
+    <span style="font-size:11px;color:var(--text-muted)">|</span>
+    <span style="font-size:11px;color:var(--text-secondary)">${nodeCount} nodes · ${edgeCount} edges · ${devs.length} devices · ${(wifi.access_points||[]).length} APs</span>
+    <span style="font-size:11px;color:var(--text-muted)">|</span>
+    <span style="font-size:11px;color:var(--text-secondary)">${phase.replace(/_/g,' ')}</span>
+    <span style="flex:1"></span>
+    <span id="map-freeze-badge" style="display:${wasFrozen?'flex':'none'};align-items:center;gap:6px;padding:3px 10px;background:rgba(255,180,50,0.15);border:1px solid rgba(255,180,50,0.3);border-radius:6px;font-size:10px;color:#ffb432;cursor:pointer" onclick="unfreezeMap()">
+      <span style="font-size:10px">⏸</span> Paused <span style="font-size:9px;opacity:0.7">[click to resume]</span>
+    </span>
+    <span style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${thought}</span>`;
+  }
+  // Also update device table
+  let rows = devs.map(d => '<tr onclick="showDeviceDetail(\\''+d.ip+'\\')" style="cursor:pointer"><td><code style="color:var(--accent)">'+d.ip+'</code></td><td>'+(d.hostname||'-')+'</td><td>'+(d.mac||'-')+'</td><td>'+(d.os_guess||'-')+'</td><td><span class="sev sev-'+(d.type==='router'?'high':'info')+'">'+(d.type||'?')+'</span></td><td>'+((d.services||[]).length)+'</td></tr>').join('');
+  if(!rows) rows = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No devices discovered</td></tr>';
+  const tbl = document.getElementById('map-table');
+  if(tbl) tbl.innerHTML = '<div class="card"><div class="card-header">Device Inventory <span style="color:var(--text-muted);font-weight:400;font-size:12px">'+devs.length+' hosts</span></div><div class="card-body table-wrap"><table><thead><tr><th>IP</th><th>Hostname</th><th>MAC</th><th>OS</th><th>Type</th><th>Services</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+
+setInterval(async()=>{
+  if(currentPage!=='map') return;
+  if(mapFrozen) return;
+  await fetchMapData();
+  updateMapStatusOnly();
+}, 10000);
 </script>
 </body>
 </html>"""
