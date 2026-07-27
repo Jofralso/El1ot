@@ -2198,12 +2198,12 @@ class TamagotchiEngine:
 
         return False
 
-    def _create_vuln_notification(self, ip: str, port: int, vuln_type: str, severity: str, message: str):
-        """Create a vulnerability notification from analysis."""
+    def _create_vuln_notification(self, ip: str, port: int, vuln_type: str, severity: str, message: str) -> bool:
+        """Create a vulnerability notification from analysis. Returns True if new."""
         # Deduplicate: don't re-create same vuln for same ip:port
         for n in self._notifications:
             if n.target == f"{ip}:{port}" and n.type == NotificationType.VULN_FOUND:
-                return
+                return False
         self.create_notification(
             NotificationType.VULN_FOUND,
             f"{vuln_type.replace('_', ' ').title()}: {ip}:{port}",
@@ -2211,8 +2211,7 @@ class TamagotchiEngine:
             target=f"{ip}:{port}",
             severity=severity,
         )
-        self._stats["vulns_found"] += 1
-        self.award_xp("vuln_found", detail=f"{vuln_type} on {ip}:{port}")
+        return True
 
     def create_notification(
         self,
@@ -2224,7 +2223,13 @@ class TamagotchiEngine:
         needs_auth: bool = False,
         exploit_cmd: Optional[str] = None,
     ) -> Notification:
-        """Create a notification (and optionally an exploit task)."""
+        """Create a notification (and optionally an exploit task). Deduplicates by type+target."""
+        # Deduplicate: skip if same type+target already exists
+        if target:
+            for existing in self._notifications:
+                if existing.type == ntype and existing.target == target:
+                    return existing
+
         notif = Notification(
             type=ntype,
             title=title,
@@ -2287,7 +2292,15 @@ class TamagotchiEngine:
     # ── Knowledge Growth ──────────────────────────────────────
 
     def log_knowledge(self, category: str, key: str, value: Any, source: str = ""):
-        """Log a piece of knowledge for future reference."""
+        """Log a piece of knowledge for future reference. Updates existing entry if same category+key."""
+        # Deduplicate: update existing entry instead of appending
+        for entry in self._knowledge_log:
+            if entry.get("category") == category and entry.get("key") == key:
+                entry["value"] = value
+                entry["source"] = source
+                entry["timestamp"] = time.time()
+                return
+
         entry = {
             "category": category,
             "key": key,
@@ -2689,9 +2702,10 @@ class TamagotchiEngine:
                 open_aps = [a for a in wifi_aps if a.encryption == "off"]
                 weak_aps = [a for a in wifi_aps if a.encryption == "on" and a.signal > -60]
 
-                if open_aps:
-                    self._stats["open_networks_found"] += len(open_aps)
-                    for ap in open_aps:
+                new_open = [a for a in open_aps if a.bssid not in self._wifi_aps]
+                if new_open:
+                    self._stats["open_networks_found"] = self._stats.get("open_networks_found", 0) + len(new_open)
+                    for ap in new_open:
                         self._think(f"OPEN NETWORK: {ap.ssid} ({ap.bssid}) — no encryption!")
                         self.create_notification(
                             NotificationType.ALERT,
@@ -3201,7 +3215,7 @@ class TamagotchiEngine:
         ip = device.ip
         hostname = device.hostname or ""
         dev_type = device.device_type.value
-        vulns_on_device = 0
+        new_vulns = 0
 
         if len(device.services) > 3:
             self.award_xp("service_enum_deep", detail=f"{ip}: {len(device.services)} services")
@@ -3210,24 +3224,23 @@ class TamagotchiEngine:
             port = svc.port
             name = svc.name.lower() if svc.name else ""
             version = svc.version or ""
-            vuln_found = False
+            is_new = False
             severity = "info"
 
             # Telnet (plaintext)
             if name == "telnet" or port == 23:
                 self._think(f"⚠️ Telnet on {ip}:{port} — plaintext, sniffable")
-                self._create_vuln_notification(ip, port, "telnet_exposure", "high",
+                is_new = self._create_vuln_notification(ip, port, "telnet_exposure", "high",
                     f"Telnet on {ip}:{port} — credentials in plaintext")
-                vuln_found = True
                 severity = "high"
 
             # FTP
             elif name == "ftp" or port == 21:
                 self._think(f"FTP on {ip}:{port} — checking for anon access...")
-                self._create_vuln_notification(ip, port, "ftp_anon", "medium",
+                is_new = self._create_vuln_notification(ip, port, "ftp_anon", "medium",
                     f"FTP on {ip}:{port} — check anonymous login")
-                self.award_xp("service_exploited", detail=f"FTP on {ip}:{port}")
-                vuln_found = True
+                if is_new:
+                    self.award_xp("service_exploited", detail=f"FTP on {ip}:{port}")
                 severity = "medium"
 
             # SSH
@@ -3237,9 +3250,8 @@ class TamagotchiEngine:
                         ver_num = float(version.split("p")[0].replace("OpenSSH_", ""))
                         if ver_num < 7.0:
                             self._think(f"⚠️ Outdated SSH on {ip}: {version}")
-                            self._create_vuln_notification(ip, port, "outdated_ssh", "medium",
+                            is_new = self._create_vuln_notification(ip, port, "outdated_ssh", "medium",
                                 f"Outdated OpenSSH ({version}) on {ip}:{port}")
-                            vuln_found = True
                             severity = "medium"
                     except (ValueError, IndexError):
                         pass
@@ -3253,65 +3265,62 @@ class TamagotchiEngine:
             # SMB
             elif name in ("microsoft-ds", "netbios-ssn") or port in (445, 139):
                 self._think(f"⚠️ SMB on {ip}:{port} — exploit target")
-                self._create_vuln_notification(ip, port, "smb_exposed", "high",
+                is_new = self._create_vuln_notification(ip, port, "smb_exposed", "high",
                     f"SMB on {ip}:{port} — brute force or EternalBlue possible")
-                self.award_xp("service_exploited", detail=f"SMB on {ip}:{port}")
-                vuln_found = True
+                if is_new:
+                    self.award_xp("service_exploited", detail=f"SMB on {ip}:{port}")
                 severity = "high"
 
             # Databases
             elif name in ("mysql", "postgresql", "ms-sql") or port in (3306, 5432, 1433):
                 self._think(f"⚠️ Database exposed on {ip}:{port} ({name})")
-                self._create_vuln_notification(ip, port, "db_exposed", "high",
+                is_new = self._create_vuln_notification(ip, port, "db_exposed", "high",
                     f"Database {name} on {ip}:{port} — should not be accessible")
-                vuln_found = True
                 severity = "high"
 
             # Redis
             elif name == "redis" or port == 6379:
                 self._think(f"⚠️ Redis on {ip}:{port} — possible unauth access")
-                self._create_vuln_notification(ip, port, "redis_exposed", "high",
+                is_new = self._create_vuln_notification(ip, port, "redis_exposed", "high",
                     f"Redis on {ip}:{port} — may allow unauthenticated access")
-                self.award_xp("service_exploited", detail=f"Redis on {ip}:{port}")
-                vuln_found = True
+                if is_new:
+                    self.award_xp("service_exploited", detail=f"Redis on {ip}:{port}")
                 severity = "high"
 
             # RDP
             elif name == "rdp" or port == 3389:
                 self._think(f"RDP on {ip}:{port} — brute force target")
-                self._create_vuln_notification(ip, port, "rdp_exposed", "medium",
+                is_new = self._create_vuln_notification(ip, port, "rdp_exposed", "medium",
                     f"RDP on {ip}:{port} — brute force or BlueKeep check")
-                vuln_found = True
                 severity = "medium"
 
             # SNMP
             elif name == "snmp" or port in (161, 162):
                 self._think(f"⚠️ SNMP on {ip}:{port} — info leak possible")
-                self._create_vuln_notification(ip, port, "snmp_exposed", "medium",
+                is_new = self._create_vuln_notification(ip, port, "snmp_exposed", "medium",
                     f"SNMP on {ip}:{port} — community strings may be default")
-                self.award_xp("snmp_community_found", detail=f"SNMP on {ip}:{port}")
-                vuln_found = True
+                if is_new:
+                    self.award_xp("snmp_community_found", detail=f"SNMP on {ip}:{port}")
                 severity = "medium"
 
             # VNC
             elif name == "vnc" or port == 5900:
                 self._think(f"⚠️ VNC on {ip}:{port} — unencrypted remote desktop")
-                self._create_vuln_notification(ip, port, "vnc_exposed", "medium",
+                is_new = self._create_vuln_notification(ip, port, "vnc_exposed", "medium",
                     f"VNC on {ip}:{port} — unencrypted remote access")
-                vuln_found = True
                 severity = "medium"
 
             # Log knowledge for all services
             self.log_knowledge("service_analysis", f"{ip}:{port}",
-                {"service": name, "version": version, "vuln": vuln_found, "severity": severity},
+                {"service": name, "version": version, "vuln": is_new, "severity": severity},
                 source="tamagotchi_analysis")
 
-            if vuln_found:
+            if is_new:
                 self._stats["vulns_found"] += 1
-                vulns_on_device += 1
+                new_vulns += 1
                 self.award_xp("vuln_found", detail=f"{ip}:{port} ({name})")
 
-        if vulns_on_device == 0:
+        if new_vulns == 0:
             self._think(f"Device {ip} ({hostname or dev_type}) — {len(device.services)} services, clean")
 
     # ── Full Knowledge Indexing ─────────────────────────────
@@ -3687,8 +3696,11 @@ class TamagotchiEngine:
                 stdout = await self._fast_nmap(cmd, timeout=10)
                 if any(kw in stdout.lower() for kw in ["eliot_pwned", "pong", "+----", "connected", "welcome"]):
                     cred_str = f"{user}:{passwd}" if passwd else f"{user}:<empty>"
-                    self._think(f"DEFAULT CREDS FOUND on {target}:{port} ({service}) — {cred_str}")
-                    self.award_xp("default_creds_found", detail=f"{target}:{port} {cred_str}")
+                    # Only award XP / notify if not already found
+                    already = any(n.target == target and "Default credentials" in n.title for n in self._notifications)
+                    if not already:
+                        self._think(f"DEFAULT CREDS FOUND on {target}:{port} ({service}) — {cred_str}")
+                        self.award_xp("default_creds_found", detail=f"{target}:{port} {cred_str}")
                     self.create_notification(
                         NotificationType.ALERT,
                         f"Default credentials: {target}:{port}",
@@ -3722,8 +3734,10 @@ class TamagotchiEngine:
             f"curl -s --connect-timeout 5 ftp://anonymous:x@{target}:{port}/ 2>/dev/null", timeout=15
         )
         if stdout.strip() and "permission denied" not in stdout.lower():
-            self._think(f"FTP ANONYMOUS ACCESS on {target}:{port}")
-            self.award_xp("ftp_anon_access", detail=f"{target}:{port}")
+            already = any(n.target == target and "FTP anonymous" in n.title for n in self._notifications)
+            if not already:
+                self._think(f"FTP ANONYMOUS ACCESS on {target}:{port}")
+                self.award_xp("ftp_anon_access", detail=f"{target}:{port}")
             self.create_notification(
                 NotificationType.ALERT,
                 f"FTP anonymous access: {target}:{port}",
@@ -3740,8 +3754,10 @@ class TamagotchiEngine:
         port = 6379
         stdout = await self._fast_nmap(f"redis-cli -h {target} -p {port} INFO server 2>/dev/null | head -10", timeout=10)
         if "redis_version" in stdout:
-            self._think(f"REDIS UNAUTHENTICATED ACCESS on {target}:{port}")
-            self.award_xp("redis_unauthenticated", detail=f"{target}:{port}")
+            already = any(n.target == target and "Redis unauthenticated" in n.title for n in self._notifications)
+            if not already:
+                self._think(f"REDIS UNAUTHENTICATED ACCESS on {target}:{port}")
+                self.award_xp("redis_unauthenticated", detail=f"{target}:{port}")
             self.create_notification(
                 NotificationType.ALERT,
                 f"Redis unauthenticated: {target}:{port}",
@@ -3766,8 +3782,10 @@ class TamagotchiEngine:
             f"smbclient -L {target} -N 2>/dev/null | head -20", timeout=15
         )
         if "sharename" in stdout.lower() or "disk" in stdout.lower():
-            self._think(f"SMB NULL SESSION on {target}")
-            self.award_xp("smb_null_session", detail=f"{target}")
+            already = any(n.target == target and "SMB null session" in n.title for n in self._notifications)
+            if not already:
+                self._think(f"SMB NULL SESSION on {target}")
+                self.award_xp("smb_null_session", detail=f"{target}")
             self.create_notification(
                 NotificationType.ALERT,
                 f"SMB null session: {target}",
