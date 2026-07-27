@@ -881,7 +881,7 @@ async function renderTamagotchi() {
   const stateColors = window.stateColors;
 
   // Mr. Robot ASCII Avatar — distinct per state
-  const avatarFrames = {
+  window.avatarFrames = {
     idle: `<pre style="color:var(--text-muted)">
     ┌─────────────┐
     │  ░▒▓█ ELIOT █▓▒░  │
@@ -1076,7 +1076,7 @@ async function renderTamagotchi() {
           </div>
           <div class="card-body">
             <div class="avatar-container avatar-anim-${state}" id="avatar-container">
-              <div class="avatar-ascii" id="avatar-live">${avatarFrames[state]||avatarFrames.idle}</div>
+              <div class="avatar-ascii" id="avatar-live">${(window.avatarFrames||{})[state]||(window.avatarFrames||{}).idle}</div>
               <div class="avatar-state" id="avatar-state-live" style="color:${stateColors[state]||'var(--text-muted)'}">${state}</div>
               <div id="avatar-thought" style="margin-top:8px;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;font-size:11px;color:var(--text-secondary);font-family:'JetBrains Mono',monospace;max-width:280px;text-align:center;min-height:20px">
                 ${status.current_thought||'...'}
@@ -1539,7 +1539,7 @@ function connectWS() {
         const avatarEl = document.getElementById('avatar-live');
         const avatarCt = document.getElementById('avatar-container');
         if(avatarEl && d.state) {
-          const f = avatarFrames[d.state] || avatarFrames.idle;
+          const f = (window.avatarFrames||{})[d.state] || (window.avatarFrames||{}).idle;
           avatarEl.innerHTML = f;
           // Update animation class on container
           if(avatarCt) {
