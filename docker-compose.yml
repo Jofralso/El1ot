@@ -2,24 +2,25 @@ version: '3.8'
 
 services:
   # Core ELIOT service (AI, orchestration, API)
+  # Uses host networking for direct network scanning access
   core:
     build:
       context: .
       dockerfile: core/Dockerfile
     container_name: eliot-core
-    ports:
-      - "8000:8000"
+    network_mode: host
+    privileged: true
     environment:
       - ELIOT_ENV=${ELIOT_ENV:-development}
       - ELIOT_LOG_LEVEL=${ELIOT_LOG_LEVEL:-INFO}
       - HARDWARE_TARGET=${HARDWARE_TARGET:-dev-machine}
-      - REDIS_HOST=redis
+      - REDIS_HOST=127.0.0.1
       - REDIS_PORT=6379
-      - CHROMADB_HOST=chromadb
-      - CHROMADB_PORT=8000
-      - MQTT_HOST=mqtt
+      - CHROMADB_HOST=127.0.0.1
+      - CHROMADB_PORT=8001
+      - MQTT_HOST=127.0.0.1
       - MQTT_PORT=1883
-      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_HOST=http://127.0.0.1:11434
       - OLLAMA_MODEL=qwen2.5-coder-3b
     volumes:
       - ./core:/app/core
@@ -36,8 +37,8 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
       - eliot-models:/app/models
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - /sys:/sys:ro
+      - /proc:/proc:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -45,8 +46,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    networks:
-      - eliot-network
     depends_on:
       - redis
       - chromadb

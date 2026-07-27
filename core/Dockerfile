@@ -23,10 +23,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install runtime dependencies only
+# Install runtime dependencies + pentest tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
+    nmap \
+    net-tools \
+    iproute2 \
+    iw \
+    wireless-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy wheels from builder

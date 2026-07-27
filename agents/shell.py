@@ -350,7 +350,9 @@ class ShellAgent(BaseAgent):
         # Auto-add sudo for commands that need it
         cmd_stripped = command.strip()
         first_word = cmd_stripped.split()[0].lower() if cmd_stripped.split() else ""
-        if first_word in self.SUDO_COMMANDS and "sudo" not in cmd_stripped:
+        import shutil as _shutil
+        in_docker = not os.path.exists("/etc/shadow") or not _shutil.which("sudo")
+        if first_word in self.SUDO_COMMANDS and "sudo" not in cmd_stripped and not in_docker:
             command = f"echo jetson | sudo -S {command}"
 
         safety = self._check_command_safety(command)

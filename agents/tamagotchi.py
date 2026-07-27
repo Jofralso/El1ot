@@ -2888,8 +2888,11 @@ class TamagotchiEngine:
 
     async def _fast_nmap(self, cmd: str, timeout: float = 120.0) -> str:
         """Run nmap at maximum speed, no stealth. Returns stdout."""
-        # Prepend sudo for nmap
-        full_cmd = f"echo jetson | sudo -S {cmd} 2>/dev/null"
+        import shutil as _shutil
+        if _shutil.which("sudo") and os.path.exists("/etc/shadow"):
+            full_cmd = f"echo jetson | sudo -S {cmd} 2>/dev/null"
+        else:
+            full_cmd = cmd
         proc = None
         try:
             proc = await asyncio.create_subprocess_shell(
