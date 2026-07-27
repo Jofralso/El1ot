@@ -214,9 +214,38 @@ select.form-input { appearance:none; background-image:url("data:image/svg+xml,%3
 .achievement-locked .achievement-name { color:var(--text-muted); }
 
 /* Tamagotchi Avatar */
-.avatar-container { display:flex; flex-direction:column; align-items:center; padding:20px; }
-.avatar-ascii { font-family:'JetBrains Mono',monospace; font-size:12px; line-height:1.2; color:var(--accent); white-space:pre; text-align:center; }
+.avatar-container { display:flex; flex-direction:column; align-items:center; padding:20px; position:relative; }
+.avatar-ascii { font-family:'JetBrains Mono',monospace; font-size:12px; line-height:1.2; color:var(--accent); white-space:pre; text-align:center; position:relative; transition:all 0.3s ease; }
 .avatar-state { margin-top:12px; font-size:14px; font-weight:600; color:var(--accent); text-transform:capitalize; }
+
+/* Avatar state animations */
+@keyframes avatar-idle-glow { 0%,100%{box-shadow:0 0 8px rgba(100,100,120,0.15)} 50%{box-shadow:0 0 16px rgba(100,100,120,0.25)} }
+@keyframes avatar-scan-sweep { 0%{background-position:0% 0%} 100%{background-position:0% 100%} }
+@keyframes avatar-scan-eyes { 0%,40%{opacity:1} 45%{opacity:0.3} 50%{opacity:1} 90%{opacity:1} 95%{opacity:0.3} 100%{opacity:1} }
+@keyframes avatar-analyze-spin { 0%{text-shadow:0 0 4px var(--success)} 50%{text-shadow:0 0 12px var(--success)} 100%{text-shadow:0 0 4px var(--success)} }
+@keyframes avatar-exploit-flash { 0%,100%{opacity:1;text-shadow:0 0 4px var(--danger)} 50%{opacity:0.7;text-shadow:0 0 20px var(--danger)} }
+@keyframes avatar-crack-churn { 0%{letter-spacing:0} 50%{letter-spacing:1px} 100%{letter-spacing:0} }
+@keyframes avatar-alert-shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-3px)} 75%{transform:translateX(3px)} }
+@keyframes avatar-alert-flash { 0%,100%{opacity:1} 50%{opacity:0.4} }
+@keyframes avatar-sleep-breathe { 0%,100%{opacity:0.6;transform:scale(1)} 50%{opacity:0.85;transform:scale(1.01)} }
+@keyframes avatar-map-pulse { 0%,100%{text-shadow:0 0 3px var(--info)} 50%{text-shadow:0 0 14px var(--info)} }
+@keyframes avatar-report-type { 0%{opacity:0.7} 50%{opacity:1} 100%{opacity:0.7} }
+@keyframes avatar-thinking-dots { 0%{opacity:1} 50%{opacity:0.3} 100%{opacity:1} }
+@keyframes avatar-border-glow { 0%,100%{box-shadow:inset 0 0 8px rgba(0,100,255,0.05)} 50%{box-shadow:inset 0 0 16px rgba(0,100,255,0.12)} }
+@keyframes avatar-exploit-border { 0%,100%{box-shadow:inset 0 0 8px rgba(255,50,50,0.08)} 50%{box-shadow:inset 0 0 20px rgba(255,50,50,0.2)} }
+@keyframes avatar-success-border { 0%,100%{box-shadow:inset 0 0 8px rgba(0,200,100,0.05)} 50%{box-shadow:inset 0 0 16px rgba(0,200,100,0.12)} }
+
+.avatar-anim-idle { animation: avatar-idle-glow 4s ease-in-out infinite; border-radius:8px; }
+.avatar-anim-scanning .avatar-ascii { animation: avatar-scan-eyes 3s ease-in-out infinite; }
+.avatar-anim-scanning { animation: avatar-border-glow 2s ease-in-out infinite; border-radius:8px; }
+.avatar-anim-analyzing .avatar-ascii { animation: avatar-analyze-spin 2s ease-in-out infinite; }
+.avatar-anim-exploiting .avatar-ascii { animation: avatar-exploit-flash 0.6s ease-in-out infinite; }
+.avatar-anim-exploiting { animation: avatar-exploit-border 1s ease-in-out infinite; border-radius:8px; }
+.avatar-anim-cracking .avatar-ascii { animation: avatar-crack-churn 1.5s ease-in-out infinite; }
+.avatar-anim-alert .avatar-ascii { animation: avatar-alert-shake 0.3s ease-in-out infinite, avatar-alert-flash 0.8s ease-in-out infinite; }
+.avatar-anim-sleeping .avatar-ascii { animation: avatar-sleep-breathe 4s ease-in-out infinite; }
+.avatar-anim-mapping .avatar-ascii { animation: avatar-map-pulse 2.5s ease-in-out infinite; }
+.avatar-anim-reporting .avatar-ascii { animation: avatar-report-type 3s ease-in-out infinite; }
 
 /* Logs */
 .log-entry { font-family:'JetBrains Mono',monospace; font-size:12px; padding:8px 12px; border-bottom:1px solid var(--border); display:flex; gap:12px; }
@@ -1046,7 +1075,7 @@ async function renderTamagotchi() {
             </div>
           </div>
           <div class="card-body">
-            <div class="avatar-container">
+            <div class="avatar-container avatar-anim-${state}" id="avatar-container">
               <div class="avatar-ascii" id="avatar-live">${avatarFrames[state]||avatarFrames.idle}</div>
               <div class="avatar-state" id="avatar-state-live" style="color:${stateColors[state]||'var(--text-muted)'}">${state}</div>
               <div id="avatar-thought" style="margin-top:8px;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;font-size:11px;color:var(--text-secondary);font-family:'JetBrains Mono',monospace;max-width:280px;text-align:center;min-height:20px">
@@ -1508,9 +1537,14 @@ function connectWS() {
         }
         // Live avatar update from WebSocket
         const avatarEl = document.getElementById('avatar-live');
+        const avatarCt = document.getElementById('avatar-container');
         if(avatarEl && d.state) {
           const f = avatarFrames[d.state] || avatarFrames.idle;
           avatarEl.innerHTML = f;
+          // Update animation class on container
+          if(avatarCt) {
+            avatarCt.className = 'avatar-container avatar-anim-' + d.state;
+          }
           const sc = document.getElementById('avatar-state-live');
           if(sc) { sc.textContent = d.state; sc.style.color = stateColors[d.state]||'var(--text-muted)'; }
         }

