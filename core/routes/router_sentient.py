@@ -23,7 +23,7 @@ async def get_status():
 @router.post("/scan")
 async def trigger_scan():
     engine = _tama()
-    engine.award_xp("manual_scan", detail="Manual scan triggered via API")
+    engine.award_xp("scan_complete", detail="Manual scan triggered via API")
     return {"status": "scan_running", "message": "Tamagotchi is scanning"}
 
 

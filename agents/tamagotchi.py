@@ -154,21 +154,82 @@ class TamagotchiEngine:
 
     # ── Gamification Constants ───────────────────────────────
     XP_WEIGHTS = {
+        # ── Recon & Discovery ──
         "scan_complete": 10,
         "device_discovered": 15,
         "service_detected": 20,
+        "os_identified": 12,
         "vuln_found": 30,
-        "exploit_success": 50,
-        "crack_complete": 40,
-        "auth_granted": 5,
-        "knowledge_logged": 8,
+        "vuln_validated": 45,
         "new_network_mapped": 25,
+        "topology_updated": 8,
+        "full_port_scan": 15,
+        "service_enum_deep": 18,
+        "report_generated": 20,
+        "knowledge_logged": 8,
+        "scan_informed": 5,
+        # ── WiFi & Wireless ──
         "wifi_ap_found": 12,
         "bluetooth_found": 10,
+        "wifi_traffic_captured": 15,
+        "handshake_captured": 80,
+        "pmkid_captured": 75,
+        "wpa_cracked": 100,
+        "wifi_deauth": 35,
+        "evil_twin_setup": 60,
+        "wps_pin_cracked": 70,
+        "wifi_client_isolated": 25,
+        # ── Exploitation ──
+        "exploit_success": 50,
+        "service_exploited": 55,
+        "default_creds_found": 60,
+        "reverse_shell_obtained": 120,
+        "access_gained": 150,
+        "auth_granted": 5,
+        "ftp_anon_access": 40,
+        "smb_null_session": 45,
+        "redis_unauthenticated": 50,
+        "tomcat_manager_bypass": 65,
+        "ssh_default_creds": 55,
+        "snmp_community_found": 35,
+        "smb_relay_executed": 80,
+        "kerberoasted": 90,
+        "asrep_roasted": 85,
+        "password_sprayed": 40,
+        # ── Post-Exploitation ──
+        "crack_complete": 40,
+        "hash_cracked": 45,
+        "credential_harvested": 55,
+        "privilege_escalated": 130,
+        "lateral_movement": 110,
+        "port_forward_established": 45,
+        "data_exfiltrated": 100,
+        "backdoor_installed": 140,
+        "persistence_established": 120,
+        "pivot_established": 90,
+        "screen_capture": 30,
+        "keylog_captured": 50,
+        "clipboard_stolen": 25,
+        # ── Password Attacks ──
+        "hydra_bruteforce": 50,
+        "john_crack": 40,
+        "hashcat_crack": 45,
+        "dictionary_attack": 35,
+        "rule_based_crack": 50,
+        # ── MITM ──
+        "mitm_established": 95,
+        "arp_spoofing": 65,
+        "dns_spoofing": 70,
+        "ssl_stripping": 80,
+        "credential_intercepted": 110,
+        # ── Penalties ──
         "false_positive": -15,
         "scan_timeout": -5,
         "exploit_failed": -20,
         "wrong_classification": -10,
+        "detection_escalated": -30,
+        "target_lockout": -25,
+        "connection_lost": -10,
     }
 
     LEVEL_XP = [
@@ -192,20 +253,70 @@ class TamagotchiEngine:
     ]
 
     ACHIEVEMENTS = {
+        # ── Discovery Milestones ──
         "first_scan": {"name": "First Steps", "desc": "Complete your first scan", "xp": 50, "icon": "🔍"},
         "first_device": {"name": "Network Explorer", "desc": "Discover your first device", "xp": 75, "icon": "📡"},
         "first_vuln": {"name": "Bug Finder", "desc": "Find your first vulnerability", "xp": 100, "icon": "🐛"},
-        "first_exploit": {"name": "Exploit Artist", "desc": "Execute your first exploit", "xp": 200, "icon": "💥"},
-        "first_crack": {"name": "Password Hunter", "desc": "Complete your first crack session", "xp": 150, "icon": "🔐"},
         "ten_devices": {"name": "Network Mapper", "desc": "Discover 10 devices", "xp": 300, "icon": "🗺️"},
+        "fifty_devices": {"name": "Network Conqueror", "desc": "Discover 50 devices", "xp": 800, "icon": "🏔️"},
         "ten_vulns": {"name": "Vuln Collector", "desc": "Find 10 vulnerabilities", "xp": 400, "icon": "📋"},
+        "fifty_services": {"name": "Service Inspector", "desc": "Identify 50 unique services", "xp": 350, "icon": "🔎"},
+        "full_network": {"name": "Network Dominator", "desc": "Map an entire /24 subnet", "xp": 600, "icon": "🌐"},
+        "full_port_sweep": {"name": "Port Sweeper", "desc": "Complete a full 65535 port scan", "xp": 250, "icon": "🔌"},
+        # ── Exploitation Milestones ──
+        "first_exploit": {"name": "Exploit Artist", "desc": "Execute your first exploit", "xp": 200, "icon": "💥"},
+        "first_access": {"name": "Break In", "desc": "Gain shell access to a machine", "xp": 300, "icon": "🔓"},
+        "five_access": {"name": "Access Collector", "desc": "Gain access to 5 machines", "xp": 800, "icon": "🦾"},
+        "ten_access": {"name": "Systemic Breach", "desc": "Gain access to 10 machines", "xp": 1500, "icon": "👑"},
+        "default_creds_hunter": {"name": "Cred Sweeper", "desc": "Find default credentials on 3 services", "xp": 250, "icon": "🔑"},
+        "first_backdoor": {"name": "Shadow Operator", "desc": "Install your first backdoor", "xp": 350, "icon": "🚪"},
+        "five_backdoors": {"name": "Backdoor Architect", "desc": "Install backdoors on 5 machines", "xp": 1000, "icon": "🏗️"},
+        "first_mitm": {"name": "Man in the Middle", "desc": "Execute your first MITM attack", "xp": 300, "icon": "🕵️"},
+        "first_priv_esc": {"name": "Root Seeker", "desc": "Escalate privileges for the first time", "xp": 400, "icon": "⬆️"},
+        "five_priv_esc": {"name": "Privilege Lord", "desc": "Escalate privileges 5 times", "xp": 1200, "icon": "🔱"},
+        "first_lateral": {"name": "Pivot King", "desc": "Move laterally between machines", "xp": 350, "icon": "🔄"},
+        "first_exfil": {"name": "Data Thief", "desc": "Exfiltrate data from a target", "xp": 400, "icon": "📦"},
+        "first_reverse_shell": {"name": "Shell Gained", "desc": "Obtain a reverse shell", "xp": 350, "icon": "🐚"},
+        # ── WiFi Milestones ──
+        "first_crack": {"name": "Password Hunter", "desc": "Crack your first password/hash", "xp": 150, "icon": "🔐"},
+        "first_handshake": {"name": "Handshake Captured", "desc": "Capture your first WPA2 handshake", "xp": 250, "icon": "🤝"},
+        "ten_handshakes": {"name": "WiFi Warrior", "desc": "Capture 10 WPA2 handshakes", "xp": 800, "icon": "⚔️"},
+        "first_wpa_crack": {"name": "Key Cracker", "desc": "Crack a WPA2 password", "xp": 350, "icon": "🗝️"},
+        "first_evil_twin": {"name": "Impersonator", "desc": "Set up your first evil twin", "xp": 300, "icon": "👯"},
+        "first_deauth": {"name": "Air Jammer", "desc": "Execute a deauth attack", "xp": 200, "icon": "📡"},
+        # ── Credential Attacks ──
+        "first_hash_crack": {"name": "Hash Breaker", "desc": "Crack your first hash", "xp": 200, "icon": "#️⃣"},
+        "ten_hashes": {"name": "Hash Collector", "desc": "Crack 10 hashes", "xp": 500, "icon": "🧮"},
+        "first_kerberoast": {"name": "AD Exploiter", "desc": "Kerberoast an AD account", "xp": 350, "icon": "🎯"},
+        "first_hydra": {"name": "Brute Force Pro", "desc": "Crack a password with Hydra", "xp": 200, "icon": "🔨"},
+        # ── Persistence & Stealth ──
+        "first_persistence": {"name": "Permanent Access", "desc": "Establish persistence on a target", "xp": 300, "icon": "📌"},
+        "three_persistence": {"name": "Persistent Hacker", "desc": "Establish persistence on 3 machines", "xp": 800, "icon": "🏛️"},
+        "stealth_master": {"name": "Ghost", "desc": "Complete 10 operations undetected", "xp": 300, "icon": "👻"},
+        "first_pivot": {"name": "Pivot Master", "desc": "Set up port forwarding/pivoting", "xp": 250, "icon": "🌉"},
+        # ── MITM & Intercept ──
+        "first_arp_spoof": {"name": "ARP Master", "desc": "Execute ARP spoofing", "xp": 200, "icon": "🃏"},
+        "first_ssl_strip": {"name": "HTTPS Downgrader", "desc": "Perform SSL stripping", "xp": 300, "icon": "📉"},
+        "first_credential_intercept": {"name": "Credential Sniffer", "desc": "Intercept credentials via MITM", "xp": 400, "icon": "🦯"},
+        # ── XP Milestones ──
         "hundred_xp": {"name": "Rising Star", "desc": "Earn 100 XP total", "xp": 50, "icon": "⭐"},
         "thousand_xp": {"name": "Dedicated Hacker", "desc": "Earn 1000 XP total", "xp": 100, "icon": "🌟"},
+        "five_thousand_xp": {"name": "XP Grinder", "desc": "Earn 5000 XP total", "xp": 200, "icon": "💫"},
+        "ten_thousand_xp": {"name": "Veteran", "desc": "Earn 10000 XP total", "xp": 400, "icon": "🏅"},
+        # ── Level Milestones ──
         "level_5": {"name": "Getting Serious", "desc": "Reach level 5", "xp": 200, "icon": "📈"},
         "level_10": {"name": "Pro Pentester", "desc": "Reach level 10", "xp": 500, "icon": "🏆"},
-        "night_owl": {"name": "Night Owl", "desc": "Run a scan between 2-5 AM", "xp": 75, "icon": "🦉"},
-        "full_network": {"name": "Network Dominator", "desc": "Map an entire /24 subnet", "xp": 600, "icon": "🌐"},
-        "stealth_master": {"name": "Ghost", "desc": "Complete 10 scans without detection", "xp": 300, "icon": "👻"},
+        "level_15": {"name": "Red Teamer", "desc": "Reach level 15", "xp": 750, "icon": "🎖️"},
+        "level_20": {"name": "Elite Operator", "desc": "Reach level 20", "xp": 1000, "icon": "🥇"},
+        # ── Special ──
+        "night_owl": {"name": "Night Owl", "desc": "Run operations between 2-5 AM", "xp": 75, "icon": "🦉"},
+        "night_stalker": {"name": "Night Stalker", "desc": "Complete 5 operations between 2-5 AM", "xp": 300, "icon": "🦇"},
+        "speed_demon": {"name": "Speed Demon", "desc": "Complete a full cycle in under 60s", "xp": 200, "icon": "⚡"},
+        "chain_master": {"name": "Kill Chain", "desc": "Chain recon, exploit, pivot, and escalate", "xp": 1000, "icon": "⛓️"},
+        "vuln_chain": {"name": "Vuln Chainer", "desc": "Chain 3+ vulnerabilities together", "xp": 500, "icon": "🔗"},
+        "zero_day_hunter": {"name": "Zero Day Hunter", "desc": "Find 10 unique CVEs", "xp": 600, "icon": "🕵️‍♂️"},
+        "full_spectrum": {"name": "Full Spectrum", "desc": "Perform recon, exploit, and post-exploit in one cycle", "xp": 500, "icon": "🌈"},
+        "machine_whisperer": {"name": "Machine Whisperer", "desc": "Access 3 different OS types", "xp": 450, "icon": "🤖"},
     }
 
     def __init__(self):
@@ -224,14 +335,31 @@ class TamagotchiEngine:
             "scans_run": 0,
             "devices_found": 0,
             "vulns_found": 0,
+            "vulns_validated": 0,
             "exploits_executed": 0,
             "cracks_run": 0,
+            "hashes_cracked": 0,
             "notifications_created": 0,
             "authorizations_granted": 0,
             "handshakes_captured": 0,
             "networks_analyzed": 0,
             "open_networks_found": 0,
             "access_gained": 0,
+            "backdoors_installed": 0,
+            "credentials_harvested": 0,
+            "privilege_escalations": 0,
+            "lateral_movements": 0,
+            "mitm_attacks": 0,
+            "data_exfiltrations": 0,
+            "persistence_established": 0,
+            "wifi_cracks": 0,
+            "wifi_deauths": 0,
+            "evil_twins": 0,
+            "reverse_shells": 0,
+            "kerberoasts": 0,
+            "pivot_count": 0,
+            "reports_generated": 0,
+            "cycle_count": 0,
         }
         # ── Network State (tamagotchi IS the sole engine) ──
         self._devices: Dict[str, Any] = {}
@@ -255,6 +383,8 @@ class TamagotchiEngine:
         self._event_log: List[Dict[str, Any]] = []
         self._streaks: Dict[str, int] = {
             "scans": 0, "devices": 0, "vulns": 0, "exploits": 0,
+            "creds": 0, "wifi": 0, "access": 0, "persistence": 0,
+            "mitm": 0, "lateral": 0,
         }
         self._mistakes: List[Dict[str, Any]] = []
         self._current_thought: str = "Initializing..."
@@ -284,7 +414,19 @@ class TamagotchiEngine:
             self._total_xp = data.get("total_xp", 0)
             self._achievements = data.get("achievements", [])
             self._streaks = data.get("streaks", {"scans": 0, "devices": 0, "vulns": 0, "exploits": 0})
-            self._stats = data.get("stats", self._stats)
+            # Merge new stat keys with defaults (backwards compatible with old saves)
+            saved_stats = data.get("stats", {})
+            for k, v in self._stats.items():
+                if k not in saved_stats:
+                    saved_stats[k] = v
+            self._stats = saved_stats
+            # Merge new streak keys with defaults
+            default_streaks = {"scans": 0, "devices": 0, "vulns": 0, "exploits": 0,
+                               "creds": 0, "wifi": 0, "access": 0, "persistence": 0,
+                               "mitm": 0, "lateral": 0}
+            for k, v in default_streaks.items():
+                if k not in self._streaks:
+                    self._streaks[k] = 0
             logger.info(f"Loaded state: level={self._level}, xp={self._total_xp}, achievements={len(self._achievements)}")
         except Exception as e:
             logger.error(f"Failed to load state: {e}")
@@ -1918,6 +2060,8 @@ class TamagotchiEngine:
 
         def try_achieve(key):
             if key not in self._achievements:
+                if key not in self.ACHIEVEMENTS:
+                    return
                 ach = self.ACHIEVEMENTS[key]
                 self._achievements.append(key)
                 new_achievements.append(ach)
@@ -1931,32 +2075,106 @@ class TamagotchiEngine:
                     "timestamp": time.time(),
                 })
 
-        if self._stats["scans_run"] >= 1:
+        s = self._stats
+
+        # ── Discovery ──
+        if s["scans_run"] >= 1:
             try_achieve("first_scan")
-        if self._stats["devices_found"] >= 1:
+        if s["devices_found"] >= 1:
             try_achieve("first_device")
-        if self._stats["vulns_found"] >= 1:
+        if s["vulns_found"] >= 1:
             try_achieve("first_vuln")
-        if self._stats["exploits_executed"] >= 1:
-            try_achieve("first_exploit")
-        if self._stats["cracks_run"] >= 1:
-            try_achieve("first_crack")
-        if self._stats["devices_found"] >= 10:
+        if s["devices_found"] >= 10:
             try_achieve("ten_devices")
-        if self._stats["vulns_found"] >= 10:
+        if s["devices_found"] >= 50:
+            try_achieve("fifty_devices")
+        if s["vulns_found"] >= 10:
             try_achieve("ten_vulns")
+
+        # ── Exploitation ──
+        if s["exploits_executed"] >= 1:
+            try_achieve("first_exploit")
+        if s["access_gained"] >= 1:
+            try_achieve("first_access")
+        if s["access_gained"] >= 5:
+            try_achieve("five_access")
+        if s["access_gained"] >= 10:
+            try_achieve("ten_access")
+        if s["backdoors_installed"] >= 1:
+            try_achieve("first_backdoor")
+        if s["backdoors_installed"] >= 5:
+            try_achieve("five_backdoors")
+        if s["reverse_shells"] >= 1:
+            try_achieve("first_reverse_shell")
+        if s["privilege_escalations"] >= 1:
+            try_achieve("first_priv_esc")
+        if s["privilege_escalations"] >= 5:
+            try_achieve("five_priv_esc")
+        if s["lateral_movements"] >= 1:
+            try_achieve("first_lateral")
+        if s["data_exfiltrations"] >= 1:
+            try_achieve("first_exfil")
+
+        # ── WiFi ──
+        if s["cracks_run"] >= 1:
+            try_achieve("first_crack")
+        if s["handshakes_captured"] >= 1:
+            try_achieve("first_handshake")
+        if s["handshakes_captured"] >= 10:
+            try_achieve("ten_handshakes")
+        if s["wifi_cracks"] >= 1:
+            try_achieve("first_wpa_crack")
+        if s["wifi_deauths"] >= 1:
+            try_achieve("first_deauth")
+        if s["evil_twins"] >= 1:
+            try_achieve("first_evil_twin")
+
+        # ── Credentials ──
+        if s["hashes_cracked"] >= 1:
+            try_achieve("first_hash_crack")
+        if s["hashes_cracked"] >= 10:
+            try_achieve("ten_hashes")
+        if s["kerberoasts"] >= 1:
+            try_achieve("first_kerberoast")
+        if s["credentials_harvested"] >= 3:
+            try_achieve("default_creds_hunter")
+
+        # ── Persistence ──
+        if s["persistence_established"] >= 1:
+            try_achieve("first_persistence")
+        if s["persistence_established"] >= 3:
+            try_achieve("three_persistence")
+        if s["mitm_attacks"] >= 1:
+            try_achieve("first_mitm")
+        if s["pivot_count"] >= 1:
+            try_achieve("first_pivot")
+
+        # ── XP Milestones ──
         if self._total_xp >= 100:
             try_achieve("hundred_xp")
         if self._total_xp >= 1000:
             try_achieve("thousand_xp")
+        if self._total_xp >= 5000:
+            try_achieve("five_thousand_xp")
+        if self._total_xp >= 10000:
+            try_achieve("ten_thousand_xp")
+
+        # ── Level Milestones ──
         if self._level >= 5:
             try_achieve("level_5")
         if self._level >= 10:
             try_achieve("level_10")
+        if self._level >= 15:
+            try_achieve("level_15")
+        if self._level >= 20:
+            try_achieve("level_20")
 
+        # ── Time-based ──
         hour = time.localtime().tm_hour
-        if 2 <= hour <= 5 and self._stats["scans_run"] > 0:
+        if 2 <= hour <= 5 and s["scans_run"] > 0:
             try_achieve("night_owl")
+        if 2 <= hour <= 5 and s.get("cycle_count", 0) >= 5:
+            try_achieve("night_stalker")
 
         for ach in new_achievements:
             self.award_xp("achievement_unlocked", ach["xp"], ach["name"])
@@ -2423,6 +2641,7 @@ class TamagotchiEngine:
                 # ── Phase 1: Discover Networks (FAST) ──
                 self._current_phase = "network_discovery"
                 self._state = TamaState.SCANNING
+                cycle_start = time.time()
                 self._think("Phase 1: Discovering all networks [FAST]...")
                 self._phase_progress = {"phase": "network_discovery", "progress": 0}
 
@@ -2577,6 +2796,7 @@ class TamagotchiEngine:
                                 "extra_ports": new_ports,
                                 "total_ports": len(extra_ports),
                             }, source="fast_scan")
+                            self.award_xp("full_port_scan", detail=f"{ip}: {len(extra_ports)} ports found")
 
                 if new_devices > 0:
                     self._streaks["devices"] = self._streaks.get("devices", 0) + new_devices
@@ -2591,6 +2811,7 @@ class TamagotchiEngine:
                         if os_guess:
                             self._devices[ip].os_guess = os_guess
                             self._devices[ip].device_type = sentient._classify_device(self._devices[ip])
+                            self.award_xp("os_identified", detail=f"{ip}: {os_guess[:40]}")
 
                 # ── Phase 6: Targeted Vuln Scans on High-Value Targets ──
                 self._current_phase = "vuln_scanning"
@@ -2613,11 +2834,14 @@ class TamagotchiEngine:
                                 ip, int(v.get("port", 0)), "nmap_vuln", "high",
                                 f"Confirmed vulnerability on {ip}:{v.get('port', '?')}"
                             )
+                            self.award_xp("vuln_validated", detail=f"{ip}:{v.get('port', '?')} {v.get('name', 'vuln')}")
+                            self._stats["vulns_validated"] = self._stats.get("vulns_validated", 0) + 1
 
                 # ── Phase 7: Build Topology ──
                 self._current_phase = "topology"
                 self._think("Building network topology...")
                 self._build_topology()
+                self.award_xp("topology_updated", detail=f"{len(self._topology.get('nodes',[]))} nodes, {len(self._topology.get('edges',[]))} edges")
 
                 # ── Phase 8: Execute Authorized Exploits ──
                 self._current_phase = "exploitation"
@@ -2634,12 +2858,17 @@ class TamagotchiEngine:
                 self._think("Generating report and indexing all findings...")
                 await self._generate_report()
                 await self._index_all_findings()
+                self.award_xp("report_generated", detail=f"{self._stats['devices_found']} devices, {self._stats['vulns_found']} vulns")
+                self._stats["reports_generated"] = self._stats.get("reports_generated", 0) + 1
 
                 # ── Phase 10: Persist & Idle ──
                 self._current_phase = "idle"
                 self._state = TamaState.IDLE
-                self._think(f"Cycle complete. {self._stats['devices_found']} devices, {self._stats['vulns_found']} vulns, Level {self._level}.")
+                self._stats["cycle_count"] = self._stats.get("cycle_count", 0) + 1
+                cycle_elapsed = time.time() - cycle_start
+                self._think(f"Cycle complete ({int(cycle_elapsed)}s). {self._stats['devices_found']} devices, {self._stats['vulns_found']} vulns, Level {self._level}.")
                 self._phase_progress = {"phase": "idle", "progress": 100}
+                self._index_all_findings()
                 self.save_state()
 
             except asyncio.CancelledError:
@@ -2851,7 +3080,7 @@ class TamagotchiEngine:
                     "ssid": ap.ssid, "signal": ap.signal, "pcap": pcap,
                     "size": os.path.getsize(pcap),
                 }, source="passive_capture")
-                self.award_xp("wifi_ap_found", detail=f"Capture: {ap.ssid}")
+                self.award_xp("wifi_traffic_captured", detail=f"{ap.ssid}")
             else:
                 self._think(f"No traffic captured from {ap.ssid or ap.bssid}")
         except Exception as e:
@@ -2888,6 +3117,9 @@ class TamagotchiEngine:
         dev_type = device.device_type.value
         vulns_on_device = 0
 
+        if len(device.services) > 3:
+            self.award_xp("service_enum_deep", detail=f"{ip}: {len(device.services)} services")
+
         for svc in device.services:
             port = svc.port
             name = svc.name.lower() if svc.name else ""
@@ -2908,6 +3140,7 @@ class TamagotchiEngine:
                 self._think(f"FTP on {ip}:{port} — checking for anon access...")
                 self._create_vuln_notification(ip, port, "ftp_anon", "medium",
                     f"FTP on {ip}:{port} — check anonymous login")
+                self.award_xp("service_exploited", detail=f"FTP on {ip}:{port}")
                 vuln_found = True
                 severity = "medium"
 
@@ -2936,6 +3169,7 @@ class TamagotchiEngine:
                 self._think(f"⚠️ SMB on {ip}:{port} — exploit target")
                 self._create_vuln_notification(ip, port, "smb_exposed", "high",
                     f"SMB on {ip}:{port} — brute force or EternalBlue possible")
+                self.award_xp("service_exploited", detail=f"SMB on {ip}:{port}")
                 vuln_found = True
                 severity = "high"
 
@@ -2952,6 +3186,7 @@ class TamagotchiEngine:
                 self._think(f"⚠️ Redis on {ip}:{port} — possible unauth access")
                 self._create_vuln_notification(ip, port, "redis_exposed", "high",
                     f"Redis on {ip}:{port} — may allow unauthenticated access")
+                self.award_xp("service_exploited", detail=f"Redis on {ip}:{port}")
                 vuln_found = True
                 severity = "high"
 
@@ -2968,6 +3203,7 @@ class TamagotchiEngine:
                 self._think(f"⚠️ SNMP on {ip}:{port} — info leak possible")
                 self._create_vuln_notification(ip, port, "snmp_exposed", "medium",
                     f"SNMP on {ip}:{port} — community strings may be default")
+                self.award_xp("snmp_community_found", detail=f"SNMP on {ip}:{port}")
                 vuln_found = True
                 severity = "medium"
 
@@ -3359,7 +3595,7 @@ class TamagotchiEngine:
         if "--script vuln" in cmd_lower or "nikto" in cmd_lower:
             self._parse_vuln_output(stdout, command)
 
-        self.award_xp("scan_completed", detail=f"External scan: {command[:60]}")
+        self.award_xp("scan_informed", detail=f"External: {command[:60]}")
 
     def _parse_nmap_to_devices(self, stdout: str, command: str = ""):
         from agents.sentient import Device, Service, DeviceType
